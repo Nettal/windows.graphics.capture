@@ -10,7 +10,7 @@
 
 struct ImplComCallback;
 
-#define CDirect3D11CaptureFramePool_IInspectable __FITypedEventHandler_2_Windows__CGraphics__CCapture__CDirect3D11CaptureFramePool_IInspectable
+typedef __FITypedEventHandler_2_Windows__CGraphics__CCapture__CDirect3D11CaptureFramePool_IInspectable CDirect3D11CaptureFramePool_IInspectable;
 
 typedef void (*ImplCallback)(
         struct ImplComCallback *This,
