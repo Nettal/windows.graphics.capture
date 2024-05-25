@@ -26,6 +26,7 @@ typedef __x_ABI_CWindows_CGraphics_CDirectX_CDirect3D11_CIDirect3DSurface CIDire
 typedef __x_ABI_CWindows_CGraphics_CSizeInt32 CSizeInt32;
 typedef __x_ABI_CWindows_CGraphics_CDirectX_CDirect3D11_CIDirect3DDevice CIDirect3DDevice;
 typedef __x_ABI_CWindows_CGraphics_CDirectX_CDirect3D11_CDirect3DSurfaceDescription CDirect3DSurfaceDescription;
+typedef __x_ABI_CWindows_CFoundation_CTimeSpan CTimeSpan;
 
 IGraphicsCaptureItemInterop *graphicsCaptureItemInteropFunc() {
     static IGraphicsCaptureItemInterop *iGraphicsCaptureItemInterop = NULL;
@@ -75,7 +76,7 @@ struct WGC_SurfaceTranslate {
     GUID GUID_ID3D11Texture2D;
     int running;
     ID3D11Device *d3d11Device;
-    CSizeInt32 framePoolSize;
+    WGC_SIZE2D framePoolSize;
     CIDirect3DDevice *ciDirect3DDevice;
     int numberOfBuffers;
     OnFrameArrive frameArrive;
@@ -87,6 +88,8 @@ void wgc_onFrameArrive(struct ImplComCallback *This,
                        IInspectable *args) {
     CFrame *frame;
     framePool->lpVtbl->TryGetNextFrame(framePool, &frame);
+    CTimeSpan systemRelativeTime;
+    frame->lpVtbl->get_SystemRelativeTime(frame, &systemRelativeTime);
     CSizeInt32 frameSize;
     frame->lpVtbl->get_ContentSize(frame, &frameSize);
     CIDirect3DSurface *surface;
@@ -106,6 +109,7 @@ void wgc_onFrameArrive(struct ImplComCallback *This,
 
     OnFrameArriveParameter parameter = {texture2D,
                                         surfaceTranslate->d3d11Device,
+                                        systemRelativeTime.Duration,
                                         surfaceDescription.Width,
                                         surfaceDescription.Height,
                                         surfaceTranslate->userPtr};
@@ -118,13 +122,13 @@ void wgc_onFrameArrive(struct ImplComCallback *This,
     dDxgiInterfaceAccess->lpVtbl->Release(dDxgiInterfaceAccess);
     surface->lpVtbl->Release(surface);
     frame->lpVtbl->Release(frame); // release to be able to get next frame
-    if (frameSize.Height != surfaceTranslate->framePoolSize.Height ||
-        frameSize.Width != surfaceTranslate->framePoolSize.Width) {
-        surfaceTranslate->framePoolSize.Height = frameSize.Height;
-        surfaceTranslate->framePoolSize.Width = frameSize.Width;
+    if (frameSize.Height != surfaceTranslate->framePoolSize.height ||
+        frameSize.Width != surfaceTranslate->framePoolSize.width) {
+        surfaceTranslate->framePoolSize.height = frameSize.Height;
+        surfaceTranslate->framePoolSize.width = frameSize.Width;
         framePool->lpVtbl->Recreate(framePool, surfaceTranslate->ciDirect3DDevice,
                                     surfaceDescription.Format, surfaceTranslate->numberOfBuffers,
-                                    surfaceTranslate->framePoolSize);
+                                    *(CSizeInt32 *) &surfaceTranslate->framePoolSize);
     }
 }
 
@@ -162,17 +166,19 @@ void wgc_do_capture_on_this_thread(void *v) {
     }
 }
 
-void *wgc_initial_everything(OnFrameArrive frameArrive, ID3D11Device *d3d11Device, void *userPtr) {
+void *
+wgc_initial_everything(HMONITOR monitorToCapture, WGC_SIZE2D *frameSize, ID3D11Device *d3d11Device,
+                       OnFrameArrive frameArrive, void *userPtr) {
     WGC_INTERNAL_FILED *wif = calloc(sizeof(struct WGC_INTERNAL_FILED), 1);
     wif->d3d11Device = d3d11Device;
     CoInitialize(0);
     IID GUID_IGraphicsCaptureItem = iid_utils_guidFrom("79c3f95b-31f7-4ec2-a464-632ef5d30760");
-    HRESULT ret = graphicsCaptureItemInteropFunc()->lpVtbl->CreateForMonitor(graphicsCaptureItemInteropFunc(), NULL,
+    HRESULT ret = graphicsCaptureItemInteropFunc()->lpVtbl->CreateForMonitor(graphicsCaptureItemInteropFunc(),
+                                                                             monitorToCapture,
                                                                              &GUID_IGraphicsCaptureItem,
                                                                              &wif->CaptureItem);
     CHECK_RESULT_OR_RET(ret);
-    CSizeInt32 frameSize;
-    wif->CaptureItem->lpVtbl->get_Size(wif->CaptureItem, &frameSize);
+    wif->CaptureItem->lpVtbl->get_Size(wif->CaptureItem, frameSize);
 
 
     GUID dxgiUID = iid_utils_guidFrom("54ec77fa-1377-44e6-8c32-88fd5f44c84c");
@@ -185,14 +191,14 @@ void *wgc_initial_everything(OnFrameArrive frameArrive, ID3D11Device *d3d11Devic
             iid_utils_guidFrom("A9B3D012-3DF2-4EE3-B8D1-8695F457D3C1"),
             iid_utils_guidFrom("cafcb56c-6ac3-4889-bf47-9e23bbd260ec"),
             iid_utils_guidFrom("6f15aaf2-d208-4e89-9ab4-489535d34f9c"),
-            1, d3d11Device, frameSize, wif->ciDirect3DDevice,
+            1, d3d11Device, *frameSize, wif->ciDirect3DDevice,
             2, frameArrive, userPtr};
     // maybe try CreateFreeThreaded
     ret = direct3D11CaptureFramePoolStaticsFunc()->lpVtbl->Create(direct3D11CaptureFramePoolStaticsFunc(),
                                                                   wif->ciDirect3DDevice,
                                                                   DirectXPixelFormat_B8G8R8A8UIntNormalized,
                                                                   wif->surfaceTranslate.numberOfBuffers,
-                                                                  frameSize, &wif->framePool);
+                                                                  *(CSizeInt32 *) frameSize, &wif->framePool);
     CHECK_RESULT_OR_RET(ret);
     wif->framePool->lpVtbl->CreateCaptureSession(wif->framePool, wif->CaptureItem, &wif->captureSession);
     wif->fpInspectable = createInspectable(wgc_onFrameArrive,

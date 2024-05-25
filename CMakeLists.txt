@@ -18,6 +18,9 @@ add_executable(wgc
         main.cpp
         main.h
         WindowsGraphicsCapture.cpp
-        WindowsGraphicsCapture.h)
+        WindowsGraphicsCapture.h
+        log_helper.c
+        stb_image_write.c
+)
 
-target_link_libraries(wgc D3D11)
+target_link_libraries(wgc D3D11 d3dcompiler)
