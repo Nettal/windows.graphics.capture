@@ -13,6 +13,7 @@
 #include "IIDUtils.h"
 #include "CallbackImpl.h"
 #include "IDirect3DDxgiInterfaceAccess.h"
+#include "windows_graphics_capture.h"
 
 #define getPFN(x) (typeof(&x)) GetProcAddress(LoadLibraryA("combase.dll"), #x)
 
@@ -68,19 +69,22 @@ CDirect3D11CaptureFramePoolStatics *direct3D11CaptureFramePoolStaticsFunc() {
     return funcTable;
 }
 
-struct SurfaceTranslate {
+struct WGC_SurfaceTranslate {
     GUID GUID_IDirect3DDxgiInterfaceAccess;
     GUID GUID_IDXGISurface;
+    GUID GUID_ID3D11Texture2D;
     int running;
     ID3D11Device *d3d11Device;
     CSizeInt32 framePoolSize;
     CIDirect3DDevice *ciDirect3DDevice;
     int numberOfBuffers;
+    OnFrameArrive frameArrive;
+    void *userPtr;
 };;
 
-void onFrameArrive(struct ImplComCallback *This,
-                   __x_ABI_CWindows_CGraphics_CCapture_CIDirect3D11CaptureFramePool *framePool,
-                   IInspectable *args) {
+void wgc_onFrameArrive(struct ImplComCallback *This,
+                       __x_ABI_CWindows_CGraphics_CCapture_CIDirect3D11CaptureFramePool *framePool,
+                       IInspectable *args) {
     CFrame *frame;
     framePool->lpVtbl->TryGetNextFrame(framePool, &frame);
     CSizeInt32 frameSize;
@@ -89,18 +93,30 @@ void onFrameArrive(struct ImplComCallback *This,
     frame->lpVtbl->get_Surface(frame, &surface);
     CDirect3DSurfaceDescription surfaceDescription;
     surface->lpVtbl->get_Description(surface, &surfaceDescription);
-    struct SurfaceTranslate *surfaceTranslate = This->userPtr;
+    struct WGC_SurfaceTranslate *surfaceTranslate = This->userPtr;
     CIDirect3DDxgiInterfaceAccess *dDxgiInterfaceAccess;
     surface->lpVtbl->QueryInterface(surface, &surfaceTranslate->GUID_IDirect3DDxgiInterfaceAccess,
                                     &dDxgiInterfaceAccess);
-    IDXGISurface *idxgiSurface;
-    dDxgiInterfaceAccess->lpVtbl->GetInterface(dDxgiInterfaceAccess, &surfaceTranslate->GUID_IDXGISurface,
-                                               &idxgiSurface);
+    ID3D11Texture2D *texture2D;
+    dDxgiInterfaceAccess->lpVtbl->GetInterface(dDxgiInterfaceAccess, &surfaceTranslate->GUID_ID3D11Texture2D,
+                                               &texture2D);
     // outer
-    fprintf(stderr, "surface{%d,%d}\n", surfaceDescription.Width, surfaceDescription.Height);
-    fprintf(stderr, "frame{%d,%d}\n", frameSize.Width, frameSize.Height);
+    //fprintf(stderr, "surface{%d,%d}\n", surfaceDescription.Width, surfaceDescription.Height);
+    //fprintf(stderr, "frame{%d,%d}\n", frameSize.Width, frameSize.Height);
 
+    OnFrameArriveParameter parameter = {texture2D,
+                                        surfaceTranslate->d3d11Device,
+                                        surfaceDescription.Width,
+                                        surfaceDescription.Height,
+                                        surfaceTranslate->userPtr};
+    OnFrameArriveRet arriveRet = {surfaceTranslate->running};
+    surfaceTranslate->frameArrive(&parameter, &arriveRet);
     // outer end
+    surfaceTranslate->running = arriveRet.running;
+
+    texture2D->lpVtbl->Release(texture2D);
+    dDxgiInterfaceAccess->lpVtbl->Release(dDxgiInterfaceAccess);
+    surface->lpVtbl->Release(surface);
     frame->lpVtbl->Release(frame); // release to be able to get next frame
     if (frameSize.Height != surfaceTranslate->framePoolSize.Height ||
         frameSize.Width != surfaceTranslate->framePoolSize.Width) {
@@ -112,53 +128,77 @@ void onFrameArrive(struct ImplComCallback *This,
     }
 }
 
-int main() {
-    CoInitialize(0);
-    IID GUID_IGraphicsCaptureItem = iid_utils_guidFrom("79c3f95b-31f7-4ec2-a464-632ef5d30760");
-    CIGraphicsCaptureItem *CaptureItem;
-    HRESULT ret = graphicsCaptureItemInteropFunc()->lpVtbl->CreateForMonitor(graphicsCaptureItemInteropFunc(), NULL,
-                                                                             &GUID_IGraphicsCaptureItem,
-                                                                             &CaptureItem);
-    CSizeInt32 frameSize;
-    CaptureItem->lpVtbl->get_Size(CaptureItem, &frameSize);
-    ID3D11Device *d3d11Device;
-    ret = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-                            NULL, 0, D3D11_SDK_VERSION, &d3d11Device, NULL, NULL);
+#define CHECK_RESULT_OR_RET(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s",__FILE__); return 0;}} while(0)
+#define CHECK_RESULT(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s",__FILE__); return;}} while(0)
 
-    IDXGIDevice *dxgiDevice;
-    GUID dxgiUID = iid_utils_guidFrom("54ec77fa-1377-44e6-8c32-88fd5f44c84c");
-    ret = d3d11Device->lpVtbl->QueryInterface(d3d11Device, &dxgiUID, &dxgiDevice);
-    IInspectable *d3dInspectable;
-    CreateDirect3D11DeviceFromDXGIDevice(dxgiDevice, &d3dInspectable);
-    GUID winrtD3DDUID = iid_utils_guidFrom("a37624ab-8d5f-4650-9d3e-9eae3d9bc670");
-    CIDirect3DDevice *ciDirect3DDevice;
-    d3dInspectable->lpVtbl->QueryInterface(d3dInspectable, &winrtD3DDUID, &ciDirect3DDevice);
-
-    struct SurfaceTranslate surfaceTranslate = {
-            iid_utils_guidFrom("A9B3D012-3DF2-4EE3-B8D1-8695F457D3C1"),
-            iid_utils_guidFrom("cafcb56c-6ac3-4889-bf47-9e23bbd260ec"),
-            1, d3d11Device, frameSize, ciDirect3DDevice, 2};
-
-    CIDirect3D11CaptureFramePool *framePool;
-    // maybe try CreateFreeThreaded
-    ret = direct3D11CaptureFramePoolStaticsFunc()->lpVtbl->Create(direct3D11CaptureFramePoolStaticsFunc(),
-                                                                  ciDirect3DDevice,
-                                                                  DirectXPixelFormat_B8G8R8A8UIntNormalized,
-                                                                  surfaceTranslate.numberOfBuffers,
-                                                                  frameSize, &framePool);
+typedef struct WGC_INTERNAL_FILED {
+    struct WGC_SurfaceTranslate surfaceTranslate;
     CIGraphicsCaptureSession *captureSession;
-    framePool->lpVtbl->CreateCaptureSession(framePool, CaptureItem, &captureSession);
-    CDirect3D11CaptureFramePool_IInspectable *fpInspectable = createInspectable(onFrameArrive, &surfaceTranslate);
-    EventRegistrationToken token;
-    ret = framePool->lpVtbl->add_FrameArrived(framePool, fpInspectable, &token);
-    ret = captureSession->lpVtbl->StartCapture(captureSession);
+    CIDirect3D11CaptureFramePool *framePool;
+    CIGraphicsCaptureItem *CaptureItem;
+    IDXGIDevice *dxgiDevice;
+    IInspectable *d3dInspectable;
+    CIDirect3DDevice *ciDirect3DDevice;
+    CDirect3D11CaptureFramePool_IInspectable *fpInspectable;
+    ID3D11Device *d3d11Device;
+} WGC_INTERNAL_FILED;
+
+void wgc_do_capture_on_this_thread(void *v) {
+    WGC_INTERNAL_FILED *wif = v;
+    HRESULT ret = wif->captureSession->lpVtbl->StartCapture(wif->captureSession);
+    CHECK_RESULT(ret);
     MSG msg = {};
     while (GetMessageW(&msg, NULL, 0, 0)) {
-        if (!surfaceTranslate.running) {
-            captureSession->lpVtbl->Release(captureSession);
-            framePool->lpVtbl->Release(framePool);
+        if (!wif->surfaceTranslate.running) {
+            wif->captureSession->lpVtbl->Release(wif->captureSession);
+            wif->framePool->lpVtbl->Release(wif->framePool);
+            wif->CaptureItem->lpVtbl->Release(wif->CaptureItem);
+            wif->ciDirect3DDevice->lpVtbl->Release(wif->ciDirect3DDevice);
+            wif->fpInspectable->lpVtbl->Release(wif->fpInspectable);
+            wif->dxgiDevice->lpVtbl->Release(wif->dxgiDevice);
         }
         TranslateMessage(&msg);// onFrameArrive loop thread
         DispatchMessageW(&msg);
     }
+}
+
+void *wgc_initial_everything(OnFrameArrive frameArrive, ID3D11Device *d3d11Device, void *userPtr) {
+    WGC_INTERNAL_FILED *wif = calloc(sizeof(struct WGC_INTERNAL_FILED), 1);
+    wif->d3d11Device = d3d11Device;
+    CoInitialize(0);
+    IID GUID_IGraphicsCaptureItem = iid_utils_guidFrom("79c3f95b-31f7-4ec2-a464-632ef5d30760");
+    HRESULT ret = graphicsCaptureItemInteropFunc()->lpVtbl->CreateForMonitor(graphicsCaptureItemInteropFunc(), NULL,
+                                                                             &GUID_IGraphicsCaptureItem,
+                                                                             &wif->CaptureItem);
+    CHECK_RESULT_OR_RET(ret);
+    CSizeInt32 frameSize;
+    wif->CaptureItem->lpVtbl->get_Size(wif->CaptureItem, &frameSize);
+
+
+    GUID dxgiUID = iid_utils_guidFrom("54ec77fa-1377-44e6-8c32-88fd5f44c84c");
+    ret = d3d11Device->lpVtbl->QueryInterface(d3d11Device, &dxgiUID, &wif->dxgiDevice);
+    CHECK_RESULT_OR_RET(ret);
+    CreateDirect3D11DeviceFromDXGIDevice(wif->dxgiDevice, &wif->d3dInspectable);
+    GUID winrtD3DDUID = iid_utils_guidFrom("a37624ab-8d5f-4650-9d3e-9eae3d9bc670");
+    wif->d3dInspectable->lpVtbl->QueryInterface(wif->d3dInspectable, &winrtD3DDUID, &wif->ciDirect3DDevice);
+    wif->surfaceTranslate = (struct WGC_SurfaceTranslate) {
+            iid_utils_guidFrom("A9B3D012-3DF2-4EE3-B8D1-8695F457D3C1"),
+            iid_utils_guidFrom("cafcb56c-6ac3-4889-bf47-9e23bbd260ec"),
+            iid_utils_guidFrom("6f15aaf2-d208-4e89-9ab4-489535d34f9c"),
+            1, d3d11Device, frameSize, wif->ciDirect3DDevice,
+            2, frameArrive, userPtr};
+    // maybe try CreateFreeThreaded
+    ret = direct3D11CaptureFramePoolStaticsFunc()->lpVtbl->Create(direct3D11CaptureFramePoolStaticsFunc(),
+                                                                  wif->ciDirect3DDevice,
+                                                                  DirectXPixelFormat_B8G8R8A8UIntNormalized,
+                                                                  wif->surfaceTranslate.numberOfBuffers,
+                                                                  frameSize, &wif->framePool);
+    CHECK_RESULT_OR_RET(ret);
+    wif->framePool->lpVtbl->CreateCaptureSession(wif->framePool, wif->CaptureItem, &wif->captureSession);
+    wif->fpInspectable = createInspectable(wgc_onFrameArrive,
+                                           &wif->surfaceTranslate);
+    EventRegistrationToken token;
+    ret = wif->framePool->lpVtbl->add_FrameArrived(wif->framePool, wif->fpInspectable, &token);
+    CHECK_RESULT_OR_RET(ret);
+    return wif;
 }

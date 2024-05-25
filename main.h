@@ -1,11 +1,10 @@
 //
-// Created by Nettal on 2024/5/22.
+// Created by Nettal on 2024/5/25.
 //
 
-#ifndef PARSEC_MAIN_H
-#define PARSEC_MAIN_H
+#ifndef WGC_MAIN_H
+#define WGC_MAIN_H
 
 int main();
 
-
-#endif //PARSEC_MAIN_H
+#endif //WGC_MAIN_H
