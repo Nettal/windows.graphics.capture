@@ -21,7 +21,7 @@ FrameSender::FrameSender(const std::vector<DXGIMapping> &slot) : compressWaiting
                                                                  sendFinished(slot.size()),
                                                                  globalQueueSize(slot.size()) {
     compressFinished.enqueue_bulk(slot.begin(), slot.size());
-    std::vector<BufferHolder<CompressedFrame>> buffers{slot.size()};
+    std::vector <FrameBuffer> buffers{slot.size()};
     sendFinished.enqueue_bulk(buffers.begin(), buffers.size());
 }
 
@@ -36,7 +36,7 @@ void FrameSender::checkQueueSize() {
 
 void FrameSender::compressOp() {
     DXGIMapping mapping{};
-    BufferHolder<CompressedFrame> bufferHolder{};
+    FrameBuffer bufferHolder{};
     compressWaiting.wait_dequeue(mapping);
     sendFinished.wait_dequeue(bufferHolder);
     if (enableDebugCheck)
@@ -56,7 +56,7 @@ void FrameSender::compressOp() {
 }
 
 void FrameSender::sendOp() {
-    BufferHolder <CompressedFrame> bufferHolder;
+    FrameBuffer bufferHolder;
     sendWaiting.wait_dequeue(bufferHolder);
 //    std::this_thread::sleep_for(std::chrono::seconds(1));
     if (enableDebugCheck)

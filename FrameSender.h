@@ -44,10 +44,11 @@ class FrameSender {
         }
     };
 
+    using FrameBuffer = BufferHolder<CompressedFrame>;
     BlockingConcurrentQueue<DXGIMapping> compressFinished{};
     BlockingConcurrentQueue<DXGIMapping> compressWaiting{};
-    BlockingConcurrentQueue<BufferHolder<CompressedFrame>> sendFinished{};
-    BlockingConcurrentQueue<BufferHolder<CompressedFrame>> sendWaiting{};
+    BlockingConcurrentQueue<FrameBuffer> sendFinished{};
+    BlockingConcurrentQueue<FrameBuffer> sendWaiting{};
     std::thread compressThread{};
     std::thread sendThread{};
     int running{};
