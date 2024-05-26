@@ -51,13 +51,15 @@ WindowsGraphicsCapture::WindowsGraphicsCapture() {
         d3d_flags |= D3D11_CREATE_DEVICE_DEBUG;
     D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, d3d_flags,
                       d3dDeviceExtensions.begin(), d3dDeviceExtensions.size(),
-                      D3D11_SDK_VERSION, &d3d11Device, nullptr, &d3d11DeviceContext);
-    wgc_c_internal = wgc_initial_everything(nullptr, &wgcFrameSIze, d3d11Device, receiveWGCFrame, this);
+                      D3D11_SDK_VERSION, &d3d11Device, nullptr, &deviceCtx);
+    if (enable_d3d_debug)
+        d3d11Device->QueryInterface(__uuidof(ID3D11InfoQueue), (void **) &debugInfoQueue);
+    wgc_c_internal = wgc_initial_everything(nullptr, &currentTextureSize, d3d11Device, receiveWGCFrame, this);
     vertexShaderBlob = compileShader(hlsl_shader, "vs_main", "vs_5_0");
     fragmentShaderBlob = compileShader(hlsl_shader, "ps_main", "ps_5_0");
     D3D11_TEXTURE2D_DESC frame_desc{};
-    frame_desc.Height = wgcFrameSIze.height;
-    frame_desc.Width = wgcFrameSIze.width;
+    frame_desc.Height = currentTextureSize.height;
+    frame_desc.Width = currentTextureSize.width;
     frame_desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     frame_desc.Usage = D3D11_USAGE_DEFAULT;
     frame_desc.BindFlags = D3D11_BIND_RENDER_TARGET;
@@ -72,18 +74,19 @@ WindowsGraphicsCapture::WindowsGraphicsCapture() {
     CHECK_RESULT(hr);
 
     frame_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-    hr = d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerTexture);
+    hr = d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerATexture);
     CHECK_RESULT(hr);
-    frame_desc.Usage = D3D11_USAGE_STAGING;
-    frame_desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE;
-    frame_desc.BindFlags = 0;
-    hr = d3d11Device->CreateTexture2D(&frame_desc, nullptr, &cpuAccessingTexture);
+    hr = d3d11Device->CreateShaderResourceView(frameSamplerATexture, nullptr, &samplerImageAView);
     CHECK_RESULT(hr);
-    hr = d3d11Device->CreateShaderResourceView(frameSamplerTexture, nullptr, &samplerImageView);
+
+    frame_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+    hr = d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerBTexture);
+    CHECK_RESULT(hr);
+    hr = d3d11Device->CreateShaderResourceView(frameSamplerBTexture, nullptr, &samplerImageBView);
     CHECK_RESULT(hr);
 
     D3D11_BUFFER_DESC vertexInputDescriptor;
-    vertexInputDescriptor.ByteWidth = sizeof(deferredVertexInput.size() * sizeof(Vertex));
+    vertexInputDescriptor.ByteWidth = deferredVertexInput.size() * sizeof(Vertex);
     vertexInputDescriptor.Usage = D3D11_USAGE_DEFAULT;
     vertexInputDescriptor.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     vertexInputDescriptor.CPUAccessFlags = 0;
@@ -119,24 +122,67 @@ WindowsGraphicsCapture::WindowsGraphicsCapture() {
     samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
     d3d11Device->CreateSamplerState(&samplerDesc, &frameSamplerState);
     CHECK_RESULT(hr);
+    printDX11infos();
 }
 
-void
-WindowsGraphicsCapture::receiveWGCFrame(OnFrameArriveParameter *para, OnFrameArriveRet *ret) {
+void WindowsGraphicsCapture::doDiffer(ID3D11ShaderResourceView *newView, ID3D11ShaderResourceView *oldView) {
+    float clearColor[4] = {0.0f, 0.0f, 0.0f, 0.0f}; // 清空为黑色
+    deviceCtx->ClearRenderTargetView(renderTargetImageView, clearColor);
+
+    D3D11_VIEWPORT viewport = {0.0f, 0.0f,
+                               (FLOAT)(currentTextureSize.width), (FLOAT)(currentTextureSize.height),
+                               0.0f, 1.0f};
+    deviceCtx->RSSetViewports(1, &viewport);
+    // 设置渲染目标
+    deviceCtx->OMSetRenderTargets(1, &renderTargetImageView, nullptr);
+
+    // 设置顶点缓冲区
+    UINT stride = sizeof(Vertex);
+    UINT offset = 0;
+    deviceCtx->IASetVertexBuffers(0, 1, &deferredVertexBuffer, &stride, &offset);
+    deviceCtx->IASetInputLayout(vertexInputLayout);
+    deviceCtx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    deviceCtx->VSSetShader(vertexShader, nullptr, 0);
+    deviceCtx->PSSetShader(fragmentShader, nullptr, 0);
+
+    // 设置纹理资源
+    auto imageView = {newView, oldView};
+    deviceCtx->PSSetShaderResources(0, imageView.size(), imageView.begin());
+    // 将采样器状态绑定到槽位0
+    auto samplers = {frameSamplerState, frameSamplerState};
+    deviceCtx->PSSetSamplers(0, samplers.size(), samplers.begin());
+    // 执行格式转换
+    deviceCtx->Draw(6, 0);
+    printDX11infos();
+}
+
+void WindowsGraphicsCapture::receiveWGCFrame(OnFrameArriveParameter *para, OnFrameArriveRet *ret) {
     auto this_ = reinterpret_cast<WindowsGraphicsCapture *>(para->userPtr);
     ret->running = this_->running;
-    this_->d3d11DeviceContext->CopyResource(this_->cpuAccessingTexture, para->d3d11Texture2D);
-    D3D11_TEXTURE2D_DESC texture2DDesc;
-    this_->cpuAccessingTexture->GetDesc(&texture2DDesc);
-    IDXGISurface *idxgiSurface;
-    this_->cpuAccessingTexture->QueryInterface(__uuidof(IDXGISurface), (void **) &idxgiSurface);
-    DXGI_MAPPED_RECT mappedRect;
-    auto hr = idxgiSurface->Map(&mappedRect, DXGI_MAP_READ);
-    CHECK_RESULT(hr);
-    stbi_write_png((std::to_string(para->systemRelativeTime) + "capture.png").data(),
-                   texture2DDesc.Width, texture2DDesc.Height,
-                   4, mappedRect.pBits, texture2DDesc.Width * 4);
-//    assert(0);
+    this_->frameCount++;
+    if (((para->systemRelativeTime - this_->frameTime) / 10'000'000.0) >= 1) {
+        mw_info("fps:%f", this_->frameCount / ((para->systemRelativeTime - this_->frameTime) / 10'000'000.0));
+        this_->frameCount = 0;
+        this_->frameTime = para->systemRelativeTime;
+    }
+    if (this_->preTextureIndex == 1) {
+        // write to a
+        this_->deviceCtx->CopyResource(this_->frameSamplerATexture, para->d3d11Texture2D);
+        this_->preTextureIndex = 0;
+        this_->doDiffer(this_->samplerImageAView, this_->samplerImageBView);
+    } else {
+        this_->deviceCtx->CopyResource(this_->frameSamplerBTexture, para->d3d11Texture2D);
+        this_->preTextureIndex = 1;
+        this_->doDiffer(this_->samplerImageBView, this_->samplerImageAView);
+    }
+//    DXGIMapping mapped{this_->d3d11Device, para->surfaceSize, this_->deviceCtx};
+//    mapped.map(this_->renderTargetTexture);
+//    stbi_write_png((std::to_string(para->systemRelativeTime) + "capture.png").data(),
+//                   mapped.frame_desc.Width, mapped.frame_desc.Height,
+//                   4, mapped.mappedRect.pBits, mapped.mappedRect.Pitch);
+//
+//    mapped.unmap();
+//    mapped.free();
 }
 
 void WindowsGraphicsCapture::doCapture() {
@@ -147,4 +193,71 @@ void WindowsGraphicsCapture::doCapture() {
 
 void WindowsGraphicsCapture::stopCapture() {
     running = 0;
+}
+
+ID3DBlob *WindowsGraphicsCapture::compileShader(const std::string &shader, const std::string &entrance,
+                                                const std::string &target) {
+    ID3DBlob *pBlob = nullptr;
+    ID3DBlob *errorMsg = nullptr;
+    int flags = D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_DEBUG;
+    HRESULT hr = D3DCompile(shader.c_str(), shader.size(),
+                            nullptr, nullptr, nullptr,
+                            entrance.c_str(), target.c_str(),
+                            flags, 0, &pBlob, &errorMsg);
+    if (FAILED(hr)) {
+        mw_fatal("fail to compile shader: %s", errorMsg->GetBufferPointer());
+    }
+    return pBlob;
+}
+
+WindowsGraphicsCapture::DXGIMapping::DXGIMapping(ID3D11Device *d3d11Device, WGC_SIZE2D currentTextureSize,
+                                                 ID3D11DeviceContext *deviceCtx) : deviceCtx(deviceCtx) {
+    frame_desc.Height = currentTextureSize.height;
+    frame_desc.Width = currentTextureSize.width;
+    frame_desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    frame_desc.Usage = D3D11_USAGE_STAGING;
+    frame_desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE;
+    frame_desc.BindFlags = 0;
+    frame_desc.MiscFlags = 0;
+    frame_desc.MipLevels = 1;
+    frame_desc.ArraySize = 1;
+    frame_desc.SampleDesc.Count = 1;
+    frame_desc.SampleDesc.Quality = 0;
+    auto hr = d3d11Device->CreateTexture2D(&frame_desc, nullptr, &cpuAccessingTexture);
+    CHECK_RESULT(hr);
+    hr = cpuAccessingTexture->QueryInterface(__uuidof(IDXGISurface), (void **) &dxgiSurface);
+    CHECK_RESULT(hr);
+}
+
+void WindowsGraphicsCapture::DXGIMapping::unmap() {
+    dxgiSurface->Unmap();
+}
+
+void WindowsGraphicsCapture::DXGIMapping::free() {
+    dxgiSurface->Release();
+    cpuAccessingTexture->Release();
+}
+
+void WindowsGraphicsCapture::DXGIMapping::map(ID3D11Texture2D *renderTarget) {
+    deviceCtx->CopyResource(cpuAccessingTexture, renderTarget);
+    auto hr = dxgiSurface->Map(&mappedRect, DXGI_MAP_READ);
+    CHECK_RESULT(hr);
+}
+
+void WindowsGraphicsCapture::printDX11infos() {
+    if (debugInfoQueue == nullptr)
+        return;
+    UINT64 message_count = debugInfoQueue->GetNumStoredMessages();
+    for (UINT64 i = 0; i < message_count; i++) {
+        SIZE_T message_size = 0;
+        debugInfoQueue->GetMessage(i, nullptr, &message_size); //get the size of the message
+
+        D3D11_MESSAGE *message = (D3D11_MESSAGE *) malloc(message_size); //allocate enough space
+        debugInfoQueue->GetMessage(i, message, &message_size); //get the actual message
+
+        //do whatever you want to do with it
+        mw_debug("Directx11: %.*s", message->DescriptionByteLength, message->pDescription);
+        free(message);
+    }
+    debugInfoQueue->ClearStoredMessages();
 }

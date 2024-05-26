@@ -16,7 +16,7 @@ typedef struct WGC_SIZE2D {
 typedef struct OnFrameArriveParameter {
     ID3D11Texture2D *d3d11Texture2D;
     ID3D11Device *d3D11Device;
-    int64_t systemRelativeTime;
+    uint64_t systemRelativeTime;
     WGC_SIZE2D surfaceSize; // not really accurate, use mapped texture's description
     void *userPtr;
 } OnFrameArriveParameter;
