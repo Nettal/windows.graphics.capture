@@ -8,10 +8,14 @@
 #define CHECK_RESULT(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d",__FILE__, __LINE__);}} while(0)
 
 DXGIMapping::DXGIMapping(ID3D11Device *d3d11Device, WGC_SIZE2D currentTextureSize,
-                         ID3D11DeviceContext *deviceCtx) : deviceCtx(deviceCtx) {
-    frameDesc.Height = currentTextureSize.height;
-    frameDesc.Width = currentTextureSize.width;
-    frameDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+                         ID3D11DeviceContext *deviceCtx) : deviceCtx(deviceCtx), d3d11Device(d3d11Device) {
+    createTexture(currentTextureSize.width, currentTextureSize.height, DXGI_FORMAT_B8G8R8A8_UNORM);
+}
+
+void DXGIMapping::createTexture(uint32_t width, uint32_t height, enum DXGI_FORMAT format) {
+    frameDesc.Height = height;
+    frameDesc.Width = width;
+    frameDesc.Format = format;
     frameDesc.Usage = D3D11_USAGE_STAGING;
     frameDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE;
     frameDesc.BindFlags = 0;
@@ -35,5 +39,13 @@ void DXGIMapping::free() {
 }
 
 void DXGIMapping::copy(ID3D11Texture2D *renderTarget) {
+    D3D11_TEXTURE2D_DESC frameDescTarget{};
+    renderTarget->GetDesc(&frameDescTarget);
+    if (frameDescTarget.Height != frameDesc.Height ||
+        frameDescTarget.Width != frameDesc.Width ||
+        frameDescTarget.Format != frameDesc.Format) {
+        cpuAccessingTexture->Release();
+        createTexture(frameDescTarget.Width, frameDescTarget.Height, frameDescTarget.Format);
+    }
     deviceCtx->CopyResource(cpuAccessingTexture, renderTarget);
 }

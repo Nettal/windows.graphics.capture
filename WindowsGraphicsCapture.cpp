@@ -37,8 +37,7 @@ static const auto hlsl_shader =
         "    if(colorNew.r != colorOld.r || colorNew.g != colorOld.g || colorNew.b != colorOld.b){\n"
         "       return colorNew;\n"
         "      }"
-        "    float mark = asfloat(~(uint)0);"
-        "    return float4(mark,mark,mark,0);"
+        "    return float4(1, 1, 1, 0);"
         "}";
 #define CHECK_RESULT(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d",__FILE__, __LINE__);}} while(0)
 
@@ -59,40 +58,7 @@ WindowsGraphicsCapture::WindowsGraphicsCapture() {
     wgc_c_internal = wgc_initial_everything(nullptr, &currentTextureSize, d3d11Device, receiveWGCFrame, this);
     vertexShaderBlob = compileShader(hlsl_shader, "vs_main", "vs_5_0");
     fragmentShaderBlob = compileShader(hlsl_shader, "ps_main", "ps_5_0");
-    D3D11_TEXTURE2D_DESC frame_desc{};
-    frame_desc.Height = currentTextureSize.height;
-    frame_desc.Width = currentTextureSize.width;
-    frame_desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-    frame_desc.Usage = D3D11_USAGE_DEFAULT;
-    frame_desc.BindFlags = D3D11_BIND_RENDER_TARGET;
-    frame_desc.MiscFlags = 0;
-    frame_desc.MipLevels = 1;
-    frame_desc.ArraySize = 1;
-    frame_desc.SampleDesc.Count = 1;
-    frame_desc.SampleDesc.Quality = 0;
-    auto hr = d3d11Device->CreateTexture2D(&frame_desc, nullptr, &renderTargetTexture);
-    CHECK_RESULT(hr);
-    hr = d3d11Device->CreateRenderTargetView(renderTargetTexture, nullptr, &renderTargetImageView);
-    CHECK_RESULT(hr);
-
-    frame_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-    hr = d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerATexture);
-    CHECK_RESULT(hr);
-    hr = d3d11Device->CreateShaderResourceView(frameSamplerATexture, nullptr, &samplerImageAView);
-    CHECK_RESULT(hr);
-
-    frame_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-    hr = d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerBTexture);
-    CHECK_RESULT(hr);
-    hr = d3d11Device->CreateShaderResourceView(frameSamplerBTexture, nullptr, &samplerImageBView);
-    CHECK_RESULT(hr);
-
-    frame_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-    hr = d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerZeroTexture);
-    CHECK_RESULT(hr);
-    hr = d3d11Device->CreateShaderResourceView(frameSamplerZeroTexture, nullptr, &samplerImageZeroView);
-    CHECK_RESULT(hr);
-
+    createTextures(currentTextureSize, DXGI_FORMAT_B8G8R8A8_UNORM);
     D3D11_BUFFER_DESC vertexInputDescriptor;
     vertexInputDescriptor.ByteWidth = deferredVertexInput.size() * sizeof(Vertex);
     vertexInputDescriptor.Usage = D3D11_USAGE_DEFAULT;
@@ -104,7 +70,7 @@ WindowsGraphicsCapture::WindowsGraphicsCapture() {
     vertexInputData.pSysMem = deferredVertexInput.data();
     vertexInputData.SysMemPitch = 0;
     vertexInputData.SysMemSlicePitch = 0;
-    hr = d3d11Device->CreateBuffer(&vertexInputDescriptor, &vertexInputData, &deferredVertexBuffer);
+    auto hr = d3d11Device->CreateBuffer(&vertexInputDescriptor, &vertexInputData, &deferredVertexBuffer);
     CHECK_RESULT(hr);
     D3D11_INPUT_ELEMENT_DESC vertexInputAttributeDescription[] =
             {
@@ -137,6 +103,56 @@ WindowsGraphicsCapture::WindowsGraphicsCapture() {
         item = DXGIMapping{d3d11Device, currentTextureSize, deviceCtx};
     }
     sender = FrameSender{dxgiMaps};
+}
+
+void WindowsGraphicsCapture::fitWGCFrame(WGC_SIZE2D newSize, enum DXGI_FORMAT format) {
+    currentTextureSize = newSize;
+    samplerImageAView->Release();
+    samplerImageBView->Release();
+    samplerImageZeroView->Release();
+    renderTargetImageView->Release();
+    renderTargetTexture->Release();
+    frameSamplerATexture->Release();
+    frameSamplerBTexture->Release();
+    frameSamplerZeroTexture->Release();
+    createTextures(newSize, format);
+}
+
+void WindowsGraphicsCapture::createTextures(WGC_SIZE2D newSize, enum DXGI_FORMAT format) {
+    D3D11_TEXTURE2D_DESC frame_desc{};
+    frame_desc.Height = newSize.height;
+    frame_desc.Width = newSize.width;
+    frame_desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    frame_desc.Usage = D3D11_USAGE_DEFAULT;
+    frame_desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+    frame_desc.MiscFlags = 0;
+    frame_desc.MipLevels = 1;
+    frame_desc.ArraySize = 1;
+    frame_desc.SampleDesc.Count = 1;
+    frame_desc.SampleDesc.Quality = 0;
+    auto hr = d3d11Device->CreateTexture2D(&frame_desc, nullptr, &renderTargetTexture);
+    CHECK_RESULT(hr);
+    hr = d3d11Device->CreateRenderTargetView(renderTargetTexture, nullptr, &renderTargetImageView);
+    CHECK_RESULT(hr);
+    currentSamplerFormat = format;
+    frame_desc.Format = format;// samplers use specified format
+    frame_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+    hr = d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerATexture);
+    CHECK_RESULT(hr);
+    hr = d3d11Device->CreateShaderResourceView(frameSamplerATexture, nullptr, &samplerImageAView);
+    CHECK_RESULT(hr);
+
+    frame_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+    hr = d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerBTexture);
+    CHECK_RESULT(hr);
+    hr = d3d11Device->CreateShaderResourceView(frameSamplerBTexture, nullptr, &samplerImageBView);
+    CHECK_RESULT(hr);
+
+    frame_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+    hr = d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerZeroTexture);
+    CHECK_RESULT(hr);
+    hr = d3d11Device->CreateShaderResourceView(frameSamplerZeroTexture, nullptr, &samplerImageZeroView);
+    CHECK_RESULT(hr);
 }
 
 void WindowsGraphicsCapture::doDiffer(ID3D11ShaderResourceView *newView, ID3D11ShaderResourceView *oldView) {
@@ -178,6 +194,13 @@ void WindowsGraphicsCapture::receiveWGCFrame(OnFrameArriveParameter *para, OnFra
         mw_info("fps:%f", this_->frameCount / ((para->systemRelativeTime - this_->frameTime) / 10'000'000.0));
         this_->frameCount = 0;
         this_->frameTime = para->systemRelativeTime;
+    }
+    D3D11_TEXTURE2D_DESC wgcTexDesc{};
+    para->d3d11Texture2D->GetDesc(&wgcTexDesc);
+    if (this_->currentTextureSize.width != para->frameSize.width
+        || this_->currentTextureSize.height != para->frameSize.height
+        || wgcTexDesc.Format != this_->currentSamplerFormat) {
+        this_->fitWGCFrame(para->frameSize, wgcTexDesc.Format);
     }
     ID3D11ShaderResourceView *newView;
     ID3D11ShaderResourceView *oldView;

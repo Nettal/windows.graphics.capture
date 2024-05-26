@@ -17,6 +17,7 @@ class WindowsGraphicsCapture {
     // wgc
     void *wgc_c_internal{};
     WGC_SIZE2D currentTextureSize{};
+    enum DXGI_FORMAT currentSamplerFormat;
     // d3d
     static constexpr bool enableD3DDebug = false;
     ID3D11Device *d3d11Device{};
@@ -65,6 +66,10 @@ class WindowsGraphicsCapture {
     static ID3DBlob *compileShader(const std::string &shader, const std::string &entrance, const std::string &target);
 
     void printDX11infos();
+
+    void fitWGCFrame(WGC_SIZE2D newSize, enum DXGI_FORMAT format);
+
+    void createTextures(WGC_SIZE2D newSize, enum DXGI_FORMAT format);
 
 public:
 

@@ -97,6 +97,25 @@ void wgc_onFrameArrive(struct ImplComCallback *This,
     CDirect3DSurfaceDescription surfaceDescription;
     surface->lpVtbl->get_Description(surface, &surfaceDescription);
     struct WGC_SurfaceTranslate *surfaceTranslate = This->userPtr;
+    // fix incorrect pool size
+    if (frameSize.Height != surfaceTranslate->framePoolSize.height ||
+        frameSize.Width != surfaceTranslate->framePoolSize.width) {
+        surfaceTranslate->framePoolSize.height = frameSize.Height;
+        surfaceTranslate->framePoolSize.width = frameSize.Width;
+        framePool->lpVtbl->Recreate(framePool, surfaceTranslate->ciDirect3DDevice,
+                                    surfaceDescription.Format, surfaceTranslate->numberOfBuffers,
+                                    *(CSizeInt32 *) &surfaceTranslate->framePoolSize);
+        surface->lpVtbl->Release(surface);
+        frame->lpVtbl->Release(frame);
+        return;
+    }
+    // skip incorrect surface
+    if (frameSize.Height != surfaceDescription.Height ||
+        frameSize.Width != surfaceDescription.Width) {
+        surface->lpVtbl->Release(surface);
+        frame->lpVtbl->Release(frame);
+        return;
+    }
     CIDirect3DDxgiInterfaceAccess *dDxgiInterfaceAccess;
     surface->lpVtbl->QueryInterface(surface, &surfaceTranslate->GUID_IDirect3DDxgiInterfaceAccess,
                                     &dDxgiInterfaceAccess);
@@ -110,8 +129,8 @@ void wgc_onFrameArrive(struct ImplComCallback *This,
     OnFrameArriveParameter parameter = {texture2D,
                                         surfaceTranslate->d3d11Device,
                                         systemRelativeTime.Duration,
-                                        surfaceDescription.Width,
-                                        surfaceDescription.Height,
+                                        frameSize.Width,
+                                        frameSize.Height,
                                         surfaceTranslate->userPtr};
     OnFrameArriveRet arriveRet = {surfaceTranslate->running};
     surfaceTranslate->frameArrive(&parameter, &arriveRet);
@@ -122,14 +141,6 @@ void wgc_onFrameArrive(struct ImplComCallback *This,
     dDxgiInterfaceAccess->lpVtbl->Release(dDxgiInterfaceAccess);
     surface->lpVtbl->Release(surface);
     frame->lpVtbl->Release(frame); // release to be able to get next frame
-    if (frameSize.Height != surfaceTranslate->framePoolSize.height ||
-        frameSize.Width != surfaceTranslate->framePoolSize.width) {
-        surfaceTranslate->framePoolSize.height = frameSize.Height;
-        surfaceTranslate->framePoolSize.width = frameSize.Width;
-        framePool->lpVtbl->Recreate(framePool, surfaceTranslate->ciDirect3DDevice,
-                                    surfaceDescription.Format, surfaceTranslate->numberOfBuffers,
-                                    *(CSizeInt32 *) &surfaceTranslate->framePoolSize);
-    }
 }
 
 #define CHECK_RESULT_OR_RET(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d",__FILE__,__LINE__); return 0;}} while(0)

@@ -14,6 +14,10 @@ class DXGIMapping {
     IDXGISurface *dxgiSurface{};
     ID3D11Texture2D *cpuAccessingTexture{};
     ID3D11DeviceContext *deviceCtx{};
+    ID3D11Device *d3d11Device{};
+
+    void createTexture(uint32_t width, uint32_t height, enum DXGI_FORMAT format);
+
 public:
     D3D11_TEXTURE2D_DESC frameDesc{};
     DXGI_MAPPED_RECT mappedRect{};
