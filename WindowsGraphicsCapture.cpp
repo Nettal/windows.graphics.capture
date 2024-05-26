@@ -87,6 +87,12 @@ WindowsGraphicsCapture::WindowsGraphicsCapture() {
     hr = d3d11Device->CreateShaderResourceView(frameSamplerBTexture, nullptr, &samplerImageBView);
     CHECK_RESULT(hr);
 
+    frame_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+    hr = d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerZeroTexture);
+    CHECK_RESULT(hr);
+    hr = d3d11Device->CreateShaderResourceView(frameSamplerZeroTexture, nullptr, &samplerImageZeroView);
+    CHECK_RESULT(hr);
+
     D3D11_BUFFER_DESC vertexInputDescriptor;
     vertexInputDescriptor.ByteWidth = deferredVertexInput.size() * sizeof(Vertex);
     vertexInputDescriptor.Usage = D3D11_USAGE_DEFAULT;
@@ -173,16 +179,25 @@ void WindowsGraphicsCapture::receiveWGCFrame(OnFrameArriveParameter *para, OnFra
         this_->frameCount = 0;
         this_->frameTime = para->systemRelativeTime;
     }
+    ID3D11ShaderResourceView *newView;
+    ID3D11ShaderResourceView *oldView;
     if (this_->preTextureIndex == 1) {
         // write to a
         this_->deviceCtx->CopyResource(this_->frameSamplerATexture, para->d3d11Texture2D);
         this_->preTextureIndex = 0;
-        this_->doDiffer(this_->samplerImageAView, this_->samplerImageBView);
+        newView = this_->samplerImageAView;
+        oldView = this_->samplerImageBView;
     } else {
         this_->deviceCtx->CopyResource(this_->frameSamplerBTexture, para->d3d11Texture2D);
         this_->preTextureIndex = 1;
-        this_->doDiffer(this_->samplerImageBView, this_->samplerImageAView);
+        newView = this_->samplerImageBView;
+        oldView = this_->samplerImageAView;
     }
+    if (this_->refreshSignal) {
+        this_->refreshSignal = 0;
+        oldView = this_->samplerImageZeroView;
+    }
+    this_->doDiffer(newView, oldView);
     this_->sender.waitRequireSlot([this_](DXGIMapping &available) -> DXGIMapping & {
         available.copy(this_->renderTargetTexture);
         return available;
@@ -232,4 +247,8 @@ void WindowsGraphicsCapture::printDX11infos() {
         free(message);
     }
     debugInfoQueue->ClearStoredMessages();
+}
+
+void WindowsGraphicsCapture::refresh() {
+    refreshSignal = 1;
 }

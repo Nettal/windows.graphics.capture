@@ -29,10 +29,12 @@ class WindowsGraphicsCapture {
     ID3D11PixelShader *fragmentShader{};
     ID3D11ShaderResourceView *samplerImageAView{};
     ID3D11ShaderResourceView *samplerImageBView{};
+    ID3D11ShaderResourceView *samplerImageZeroView{};
     ID3D11RenderTargetView *renderTargetImageView{};
     ID3D11Texture2D *renderTargetTexture{};
     ID3D11Texture2D *frameSamplerATexture{};
     ID3D11Texture2D *frameSamplerBTexture{};
+    ID3D11Texture2D *frameSamplerZeroTexture{};
     ID3D11SamplerState *frameSamplerState{};
     ID3D11InfoQueue *debugInfoQueue{};
     int frameCount = 0;
@@ -53,7 +55,7 @@ class WindowsGraphicsCapture {
     static constexpr int BUFFER_NUM = 2;
     int running{};
     int preTextureIndex{}; // a is 0, b is 1
-    int refresh{};
+    int refreshSignal{};
     FrameSender sender{};
 
     static void receiveWGCFrame(OnFrameArriveParameter *para, OnFrameArriveRet *ret);
@@ -62,14 +64,17 @@ class WindowsGraphicsCapture {
 
     static ID3DBlob *compileShader(const std::string &shader, const std::string &entrance, const std::string &target);
 
+    void printDX11infos();
+
 public:
+
     explicit WindowsGraphicsCapture();
 
     void doCapture();
 
     void stopCapture();
 
-    void printDX11infos();
+    void refresh();
 };
 
 

@@ -21,7 +21,7 @@ FrameSender::FrameSender(const std::vector<DXGIMapping> &slot) : compressWaiting
                                                                  sendFinished(slot.size()),
                                                                  globalQueueSize(slot.size()) {
     compressFinished.enqueue_bulk(slot.begin(), slot.size());
-    std::vector <FrameBuffer> buffers{slot.size()};
+    std::vector<FrameBuffer> buffers{slot.size()};
     sendFinished.enqueue_bulk(buffers.begin(), buffers.size());
 }
 
