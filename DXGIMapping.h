@@ -22,9 +22,7 @@ public:
 
     explicit DXGIMapping() = default;
 
-    void map(ID3D11Texture2D *renderTarget);
-
-    void unmap();
+    void copy(ID3D11Texture2D *renderTarget);
 
     void free();
 };

@@ -21,7 +21,7 @@ class FrameSender {
         int32_t pitch;
     };
 
-    template<class T>
+    template<typename T>
     struct BufferHolder {
         void *buffer{};
         int64_t byteSize{};

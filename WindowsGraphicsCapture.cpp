@@ -182,7 +182,7 @@ void WindowsGraphicsCapture::receiveWGCFrame(OnFrameArriveParameter *para, OnFra
         this_->doDiffer(this_->samplerImageBView, this_->samplerImageAView);
     }
     this_->sender.waitRequireSlot([this_](DXGIMapping &available) -> DXGIMapping & {
-        available.map(this_->renderTargetTexture);
+        available.copy(this_->renderTargetTexture);
         return available;
     });
 }

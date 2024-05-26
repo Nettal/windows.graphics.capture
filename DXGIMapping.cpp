@@ -24,19 +24,16 @@ DXGIMapping::DXGIMapping(ID3D11Device *d3d11Device, WGC_SIZE2D currentTextureSiz
     CHECK_RESULT(hr);
     hr = cpuAccessingTexture->QueryInterface(__uuidof(IDXGISurface), (void **) &dxgiSurface);
     CHECK_RESULT(hr);
-}
-
-void DXGIMapping::unmap() {
-    dxgiSurface->Unmap();
+    hr = dxgiSurface->Map(&mappedRect, DXGI_MAP_READ);
+    CHECK_RESULT(hr);
 }
 
 void DXGIMapping::free() {
+    dxgiSurface->Unmap();
     dxgiSurface->Release();
     cpuAccessingTexture->Release();
 }
 
-void DXGIMapping::map(ID3D11Texture2D *renderTarget) {
+void DXGIMapping::copy(ID3D11Texture2D *renderTarget) {
     deviceCtx->CopyResource(cpuAccessingTexture, renderTarget);
-    auto hr = dxgiSurface->Map(&mappedRect, DXGI_MAP_READ);
-    CHECK_RESULT(hr);
 }

@@ -10,7 +10,7 @@ void FrameSender::waitRequireSlot(const FrameSender::SlotSupplier &supplier) {
     DXGIMapping available{};
     compressFinished.wait_dequeue(available);
     if (enableDebugCheck)
-        std::cerr << "map" << "\n";
+        std::cerr << "copy" << "\n";
     compressWaiting.enqueue(supplier(available));
     checkQueueSize();
 }
@@ -36,7 +36,7 @@ void FrameSender::checkQueueSize() {
 
 void FrameSender::compressOp() {
     DXGIMapping mapping{};
-    BufferHolder <CompressedFrame> bufferHolder{};
+    BufferHolder<CompressedFrame> bufferHolder{};
     compressWaiting.wait_dequeue(mapping);
     sendFinished.wait_dequeue(bufferHolder);
     if (enableDebugCheck)
