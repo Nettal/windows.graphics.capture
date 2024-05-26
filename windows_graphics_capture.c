@@ -132,8 +132,8 @@ void wgc_onFrameArrive(struct ImplComCallback *This,
     }
 }
 
-#define CHECK_RESULT_OR_RET(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s",__FILE__); return 0;}} while(0)
-#define CHECK_RESULT(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s",__FILE__); return;}} while(0)
+#define CHECK_RESULT_OR_RET(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d",__FILE__,__LINE__); return 0;}} while(0)
+#define CHECK_RESULT(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d",__FILE__,__LINE__); return;}} while(0)
 
 typedef struct WGC_INTERNAL_FILED {
     struct WGC_SurfaceTranslate surfaceTranslate;
@@ -160,6 +160,7 @@ void wgc_do_capture_on_this_thread(void *v) {
             wif->ciDirect3DDevice->lpVtbl->Release(wif->ciDirect3DDevice);
             wif->fpInspectable->lpVtbl->Release(wif->fpInspectable);
             wif->dxgiDevice->lpVtbl->Release(wif->dxgiDevice);
+            OleUninitialize();
         }
         TranslateMessage(&msg);// onFrameArrive loop thread
         DispatchMessageW(&msg);

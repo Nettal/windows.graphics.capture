@@ -6,6 +6,7 @@
 #include <iostream>
 #include "main.h"
 #include "WindowsGraphicsCapture.h"
+#include "FrameSender.h"
 
 int main() {
     auto wgc = WindowsGraphicsCapture();

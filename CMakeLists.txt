@@ -21,6 +21,10 @@ add_executable(wgc
         WindowsGraphicsCapture.h
         log_helper.c
         stb_image_write.c
+        FrameSender.cpp
+        FrameSender.h
+        DXGIMapping.cpp
+        DXGIMapping.h
 )
 
-target_link_libraries(wgc D3D11 d3dcompiler)
+target_link_libraries(wgc D3D11 d3dcompiler lz4)
