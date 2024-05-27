@@ -32,7 +32,7 @@ void DXGIMapping::createTexture(uint32_t width, uint32_t height, enum DXGI_FORMA
     CHECK_RESULT(hr);
 }
 
-void DXGIMapping::free() {
+void DXGIMapping::close() {
     dxgiSurface->Unmap();
     dxgiSurface->Release();
     cpuAccessingTexture->Release();
@@ -44,7 +44,7 @@ void DXGIMapping::copy(ID3D11Texture2D *renderTarget) {
     if (frameDescTarget.Height != frameDesc.Height ||
         frameDescTarget.Width != frameDesc.Width ||
         frameDescTarget.Format != frameDesc.Format) {
-        cpuAccessingTexture->Release();
+        close();
         createTexture(frameDescTarget.Width, frameDescTarget.Height, frameDescTarget.Format);
     }
     deviceCtx->CopyResource(cpuAccessingTexture, renderTarget);

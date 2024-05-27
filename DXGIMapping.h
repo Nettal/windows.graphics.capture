@@ -28,7 +28,7 @@ public:
 
     void copy(ID3D11Texture2D *renderTarget);
 
-    void free();
+    void close();
 };
 
 
