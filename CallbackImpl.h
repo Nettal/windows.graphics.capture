@@ -27,7 +27,7 @@ typedef struct ImplComCallback {
     struct __FITypedEventHandler_2_Windows__CGraphics__CCapture__CDirect3D11CaptureFramePool_IInspectableVtbl vTableSpace;
 } ImplComCallback;
 
-CDirect3D11CaptureFramePool_IInspectable *createInspectable(ImplCallback callback, void *userPtr);
+CDirect3D11CaptureFramePool_IInspectable *callback_impl_createInspectable(ImplCallback callback, void *userPtr);
 
 
 #endif //PARSEC_CALLBACKIMPL_H

@@ -5,7 +5,7 @@
 #include "CallbackImpl.h"
 #include "IIDUtils.h"
 
-__stdcall HRESULT Impl_QueryInterface(
+__stdcall HRESULT callback_impl_QueryInterface(
         __FITypedEventHandler_2_Windows__CGraphics__CCapture__CDirect3D11CaptureFramePool_IInspectable *This,
         REFIID riid,
         void **ppvObject) {
@@ -22,12 +22,12 @@ __stdcall HRESULT Impl_QueryInterface(
 }
 
 __stdcall ULONG
-Impl_AddRef(__FITypedEventHandler_2_Windows__CGraphics__CCapture__CDirect3D11CaptureFramePool_IInspectable *This) {
+callback_impl_AddRef(__FITypedEventHandler_2_Windows__CGraphics__CCapture__CDirect3D11CaptureFramePool_IInspectable *This) {
     ImplComCallback *this_ = ((ImplComCallback *) This);
     return InterlockedIncrement(&this_->ref_count);
 }
 
-__stdcall ULONG Impl_Release(
+__stdcall ULONG callback_impl_Release(
         __FITypedEventHandler_2_Windows__CGraphics__CCapture__CDirect3D11CaptureFramePool_IInspectable *This) {
     ImplComCallback *this_ = ((ImplComCallback *) This);
     // decrement object reference count
@@ -42,22 +42,22 @@ __stdcall ULONG Impl_Release(
 }
 
 __stdcall HRESULT
-Impl_Invoke(__FITypedEventHandler_2_Windows__CGraphics__CCapture__CDirect3D11CaptureFramePool_IInspectable *This,
-            __x_ABI_CWindows_CGraphics_CCapture_CIDirect3D11CaptureFramePool *sender,
-            IInspectable *args) {
+callback_impl_Invoke(__FITypedEventHandler_2_Windows__CGraphics__CCapture__CDirect3D11CaptureFramePool_IInspectable *This,
+                     __x_ABI_CWindows_CGraphics_CCapture_CIDirect3D11CaptureFramePool *sender,
+                     IInspectable *args) {
     ImplComCallback *this_ = ((ImplComCallback *) This);
     this_->callback(this_, sender, args);
     return S_OK;
 }
 
 CDirect3D11CaptureFramePool_IInspectable *
-createInspectable(ImplCallback callback, void *userPtr) {
+callback_impl_createInspectable(ImplCallback callback, void *userPtr) {
     struct ImplComCallback *result = calloc(sizeof(struct ImplComCallback), 1);
     result->lpVtbl = &result->vTableSpace;
-    result->lpVtbl->AddRef = Impl_AddRef;
-    result->lpVtbl->QueryInterface = Impl_QueryInterface;
-    result->lpVtbl->Release = Impl_Release;
-    result->lpVtbl->Invoke = Impl_Invoke;
+    result->lpVtbl->AddRef = callback_impl_AddRef;
+    result->lpVtbl->QueryInterface = callback_impl_QueryInterface;
+    result->lpVtbl->Release = callback_impl_Release;
+    result->lpVtbl->Invoke = callback_impl_Invoke;
     result->userPtr = userPtr;
     result->callback = callback;
     result->ref_count = 1;

@@ -213,8 +213,8 @@ wgc_initial_everything(HMONITOR monitorToCapture, WGC_SIZE2D *frameSize, ID3D11D
                                                                   *(CSizeInt32 *) frameSize, &wif->framePool);
     CHECK_RESULT_OR_RET(ret);
     wif->framePool->lpVtbl->CreateCaptureSession(wif->framePool, wif->CaptureItem, &wif->captureSession);
-    wif->fpInspectable = createInspectable(wgc_onFrameArrive,
-                                           &wif->surfaceTranslate);
+    wif->fpInspectable = callback_impl_createInspectable(wgc_onFrameArrive,
+                                                         &wif->surfaceTranslate);
     EventRegistrationToken token;
     ret = wif->framePool->lpVtbl->add_FrameArrived(wif->framePool, wif->fpInspectable, &token);
     CHECK_RESULT_OR_RET(ret);
