@@ -24,6 +24,8 @@ add_executable(wgc
         wgc/FrameSender.h
         wgc/DXGIMapping.cpp
         wgc/DXGIMapping.h
+        wgc/D3D11Context.cpp
+        wgc/D3D11Context.h
 )
 
 add_executable(display

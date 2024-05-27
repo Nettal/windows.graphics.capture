@@ -30,10 +30,9 @@ typedef struct OnFrameArriveRet {
 typedef void (*OnFrameArrive)(OnFrameArriveParameter *onFrameArriveParameter, OnFrameArriveRet *ret);
 
 void *
-wgc_initial_everything(HMONITOR monitorToCapture, WGC_SIZE2D *frameSize, ID3D11Device *d3d11Device,
-                       OnFrameArrive frameArrive, void *userPtr);
+wgc_initial_everything(HMONITOR monitorToCapture, WGC_SIZE2D *frameSize, ID3D11Device *d3d11Device);
 
-void wgc_do_capture_on_this_thread(void *);
+void wgc_do_capture_on_this_thread(void *, OnFrameArrive frameArrive, void *userPtr);
 
 #endif
 #ifdef __cplusplus

@@ -133,6 +133,7 @@ void wgc_onFrameArrive(struct ImplComCallback *This,
                                         frameSize.Height,
                                         surfaceTranslate->userPtr};
     OnFrameArriveRet arriveRet = {surfaceTranslate->running};
+    assert(surfaceTranslate->frameArrive);
     surfaceTranslate->frameArrive(&parameter, &arriveRet);
     // outer end
     surfaceTranslate->running = arriveRet.running;
@@ -143,8 +144,8 @@ void wgc_onFrameArrive(struct ImplComCallback *This,
     frame->lpVtbl->Release(frame); // release to be able to get next frame
 }
 
-#define CHECK_RESULT_OR_RET(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d",__FILE__,__LINE__); return 0;}} while(0)
-#define CHECK_RESULT(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d",__FILE__,__LINE__); return;}} while(0)
+#define CHECK_RESULT_OR_RET(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d\n",__FILE__,__LINE__); return 0;}} while(0)
+#define CHECK_RESULT(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d\n",__FILE__,__LINE__); return;}} while(0)
 
 typedef struct WGC_INTERNAL_FILED {
     struct WGC_SurfaceTranslate surfaceTranslate;
@@ -158,8 +159,10 @@ typedef struct WGC_INTERNAL_FILED {
     ID3D11Device *d3d11Device;
 } WGC_INTERNAL_FILED;
 
-void wgc_do_capture_on_this_thread(void *v) {
-    WGC_INTERNAL_FILED *wif = v;
+void wgc_do_capture_on_this_thread(void *field, OnFrameArrive frameArrive, void *userPtr) {
+    WGC_INTERNAL_FILED *wif = field;
+    wif->surfaceTranslate.frameArrive = frameArrive;
+    wif->surfaceTranslate.userPtr = userPtr;
     HRESULT ret = wif->captureSession->lpVtbl->StartCapture(wif->captureSession);
     CHECK_RESULT(ret);
     MSG msg = {};
@@ -179,8 +182,7 @@ void wgc_do_capture_on_this_thread(void *v) {
 }
 
 void *
-wgc_initial_everything(HMONITOR monitorToCapture, WGC_SIZE2D *frameSize, ID3D11Device *d3d11Device,
-                       OnFrameArrive frameArrive, void *userPtr) {
+wgc_initial_everything(HMONITOR monitorToCapture, WGC_SIZE2D *frameSize, ID3D11Device *d3d11Device) {
     WGC_INTERNAL_FILED *wif = calloc(sizeof(struct WGC_INTERNAL_FILED), 1);
     wif->d3d11Device = d3d11Device;
     CoInitialize(0);
@@ -204,7 +206,7 @@ wgc_initial_everything(HMONITOR monitorToCapture, WGC_SIZE2D *frameSize, ID3D11D
             iid_utils_guidFrom("cafcb56c-6ac3-4889-bf47-9e23bbd260ec"),
             iid_utils_guidFrom("6f15aaf2-d208-4e89-9ab4-489535d34f9c"),
             1, d3d11Device, *frameSize, wif->ciDirect3DDevice,
-            2, frameArrive, userPtr};
+            2, 0, 0};
     // maybe try CreateFreeThreaded
     ret = direct3D11CaptureFramePoolStaticsFunc()->lpVtbl->Create(direct3D11CaptureFramePoolStaticsFunc(),
                                                                   wif->ciDirect3DDevice,
