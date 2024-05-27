@@ -59,7 +59,7 @@ class WindowsGraphicsCapture {
     int refreshSignal{};
     FrameSender sender{};
 
-    static void receiveWGCFrame(OnFrameArriveParameter *para, OnFrameArriveRet *ret);
+    void receiveWGCFrame(OnFrameArriveParameter *para, OnFrameArriveRet *ret);
 
     void doDiffer(ID3D11ShaderResourceView *newView, ID3D11ShaderResourceView *oldView);
 

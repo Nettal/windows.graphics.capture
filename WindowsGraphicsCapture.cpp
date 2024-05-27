@@ -55,7 +55,11 @@ WindowsGraphicsCapture::WindowsGraphicsCapture() {
                       D3D11_SDK_VERSION, &d3d11Device, nullptr, &deviceCtx);
     if (enableD3DDebug)
         d3d11Device->QueryInterface(__uuidof(ID3D11InfoQueue), (void **) &debugInfoQueue);
-    wgc_c_internal = wgc_initial_everything(nullptr, &currentTextureSize, d3d11Device, receiveWGCFrame, this);
+    wgc_c_internal = wgc_initial_everything(nullptr, &currentTextureSize, d3d11Device,
+                                            [](OnFrameArriveParameter *para, OnFrameArriveRet *ret) {
+                                                reinterpret_cast<WindowsGraphicsCapture *>(para->userPtr)->receiveWGCFrame(
+                                                        para, ret);
+                                            }, this);
     vertexShaderBlob = compileShader(hlsl_shader, "vs_main", "vs_5_0");
     fragmentShaderBlob = compileShader(hlsl_shader, "ps_main", "ps_5_0");
     createTextures(currentTextureSize, DXGI_FORMAT_B8G8R8A8_UNORM);
@@ -187,42 +191,41 @@ void WindowsGraphicsCapture::doDiffer(ID3D11ShaderResourceView *newView, ID3D11S
 }
 
 void WindowsGraphicsCapture::receiveWGCFrame(OnFrameArriveParameter *para, OnFrameArriveRet *ret) {
-    auto this_ = reinterpret_cast<WindowsGraphicsCapture *>(para->userPtr);
-    ret->running = this_->running;
-    this_->frameCount++;
-    if (((para->systemRelativeTime - this_->frameTime) / 10'000'000.0) >= 1) {
-        mw_info("fps:%f", this_->frameCount / ((para->systemRelativeTime - this_->frameTime) / 10'000'000.0));
-        this_->frameCount = 0;
-        this_->frameTime = para->systemRelativeTime;
+    ret->running = running;
+    frameCount++;
+    if (((para->systemRelativeTime - frameTime) / 10'000'000.0) >= 1) {
+        mw_info("fps:%f", frameCount / ((para->systemRelativeTime - frameTime) / 10'000'000.0));
+        frameCount = 0;
+        frameTime = para->systemRelativeTime;
     }
     D3D11_TEXTURE2D_DESC wgcTexDesc{};
     para->d3d11Texture2D->GetDesc(&wgcTexDesc);
-    if (this_->currentTextureSize.width != para->frameSize.width
-        || this_->currentTextureSize.height != para->frameSize.height
-        || wgcTexDesc.Format != this_->currentSamplerFormat) {
-        this_->fitWGCFrame(para->frameSize, wgcTexDesc.Format);
+    if (currentTextureSize.width != para->frameSize.width
+        || currentTextureSize.height != para->frameSize.height
+        || wgcTexDesc.Format != currentSamplerFormat) {
+        fitWGCFrame(para->frameSize, wgcTexDesc.Format);
     }
     ID3D11ShaderResourceView *newView;
     ID3D11ShaderResourceView *oldView;
-    if (this_->preTextureIndex == 1) {
+    if (preTextureIndex == 1) {
         // write to a
-        this_->deviceCtx->CopyResource(this_->frameSamplerATexture, para->d3d11Texture2D);
-        this_->preTextureIndex = 0;
-        newView = this_->samplerImageAView;
-        oldView = this_->samplerImageBView;
+        deviceCtx->CopyResource(frameSamplerATexture, para->d3d11Texture2D);
+        preTextureIndex = 0;
+        newView = samplerImageAView;
+        oldView = samplerImageBView;
     } else {
-        this_->deviceCtx->CopyResource(this_->frameSamplerBTexture, para->d3d11Texture2D);
-        this_->preTextureIndex = 1;
-        newView = this_->samplerImageBView;
-        oldView = this_->samplerImageAView;
+        deviceCtx->CopyResource(frameSamplerBTexture, para->d3d11Texture2D);
+        preTextureIndex = 1;
+        newView = samplerImageBView;
+        oldView = samplerImageAView;
     }
-    if (this_->refreshSignal) {
-        this_->refreshSignal = 0;
-        oldView = this_->samplerImageZeroView;
+    if (refreshSignal) {
+        refreshSignal = 0;
+        oldView = samplerImageZeroView;
     }
-    this_->doDiffer(newView, oldView);
-    this_->sender.waitRequireSlot([this_](DXGIMapping &available) -> DXGIMapping & {
-        available.copy(this_->renderTargetTexture);
+    doDiffer(newView, oldView);
+    sender.waitRequireSlot([this](DXGIMapping &available) -> DXGIMapping & {
+        available.copy(renderTargetTexture);
         return available;
     });
 }
