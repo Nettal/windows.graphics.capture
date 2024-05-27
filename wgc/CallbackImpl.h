@@ -6,7 +6,7 @@
 #define PARSEC_CALLBACKIMPL_H
 
 #include <rpc.h>
-#include "win/windows.graphics.capture.h"
+#include "include//windows.graphics.capture.h"
 
 struct ImplComCallback;
 

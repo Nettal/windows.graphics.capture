@@ -6,25 +6,24 @@ set(CMAKE_CXX_STANDARD 20)
 include_directories(.)
 
 add_executable(wgc
-        windows_graphics_capture.c
+        wgc/windows_graphics_capture.c
         main.h
-        win/windows.graphics.capture.h
-        CallbackImpl.c
-        CallbackImpl.h
-        IIDUtils.c
-        IIDUtils.h
-        win/windows.graphics.directx.direct3d11.interop.h
-        IDirect3DDxgiInterfaceAccess.h
+        wgc/CallbackImpl.c
+        wgc/CallbackImpl.h
+        wgc/IIDUtils.c
+        wgc/IIDUtils.h
+        wgc/include/windows.graphics.directx.direct3d11.interop.h
+        wgc/IDirect3DDxgiInterfaceAccess.h
         main.cpp
         main.h
-        WindowsGraphicsCapture.cpp
-        WindowsGraphicsCapture.h
+        wgc/WindowsGraphicsCapture.cpp
+        wgc/WindowsGraphicsCapture.h
         log_helper.c
         stb_image_write.c
-        FrameSender.cpp
-        FrameSender.h
-        DXGIMapping.cpp
-        DXGIMapping.h
+        wgc/FrameSender.cpp
+        wgc/FrameSender.h
+        wgc/DXGIMapping.cpp
+        wgc/DXGIMapping.h
 )
 
 target_link_libraries(wgc D3D11 d3dcompiler lz4)
