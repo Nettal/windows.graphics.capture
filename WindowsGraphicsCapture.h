@@ -17,7 +17,7 @@ class WindowsGraphicsCapture {
     // wgc
     void *wgc_c_internal{};
     WGC_SIZE2D currentTextureSize{};
-    enum DXGI_FORMAT currentSamplerFormat;
+    enum DXGI_FORMAT currentSamplerFormat{};
     // d3d
     static constexpr bool enableD3DDebug = false;
     ID3D11Device *d3d11Device{};

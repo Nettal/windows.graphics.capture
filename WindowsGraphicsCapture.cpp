@@ -34,9 +34,9 @@ static const auto hlsl_shader =
         "float4 ps_main(vs_out input) : SV_TARGET {\n"
         "    float4 colorNew = samplerNew.Sample(samplerStateNew, input.texCoord); // sample the texture\n"
         "    float4 colorOld = samplerOld.Sample(samplerStateOld, input.texCoord); // sample the texture\n"
-        "    if(colorNew.r != colorOld.r || colorNew.g != colorOld.g || colorNew.b != colorOld.b){\n"
-        "       return colorNew;\n"
-        "      }"
+        "    if(any(colorNew != colorOld)){\n"
+        "       return colorNew.a == 0 ? float4(0, 0, 0, 0) : colorNew;\n"
+        "       }"
         "    return float4(1, 1, 1, 0);"
         "}";
 #define CHECK_RESULT(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d",__FILE__, __LINE__);}} while(0)
