@@ -26,4 +26,15 @@ add_executable(wgc
         wgc/DXGIMapping.h
 )
 
+add_executable(display
+        display/Display.cpp
+        display/Display.h
+        log_helper.c
+        log_helper.h
+        display/glad.c
+        display/glad.h
+)
+
+target_link_libraries(display glfw3)
+
 target_link_libraries(wgc D3D11 d3dcompiler lz4)
