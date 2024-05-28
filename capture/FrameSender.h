@@ -20,7 +20,6 @@ class FrameSender {
     struct CompressedFrame {
         uint32_t w;
         uint32_t h;
-        int32_t pitch;
     };
 
     template<typename T>

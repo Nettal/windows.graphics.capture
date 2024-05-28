@@ -10,7 +10,6 @@
 typedef struct {
     uint32_t w;
     uint32_t h;
-    int32_t pitch;
     int64_t size;
 } IMAGE_TYPE;
 

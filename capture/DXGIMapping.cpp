@@ -4,6 +4,7 @@
 
 #include "DXGIMapping.h"
 #include <cstdio>
+#include <cassert>
 
 #define CHECK_RESULT(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d",__FILE__, __LINE__);}} while(0)
 
@@ -30,6 +31,8 @@ void DXGIMapping::createTexture(uint32_t width, uint32_t height, enum DXGI_FORMA
     CHECK_RESULT(hr);
     hr = dxgiSurface->Map(&mappedRect, DXGI_MAP_READ);
     CHECK_RESULT(hr);
+    assert(mappedRect.Pitch == width * 4);
+    assert(format == DXGI_FORMAT_B8G8R8A8_UNORM);
 }
 
 void DXGIMapping::close() {

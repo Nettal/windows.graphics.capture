@@ -52,7 +52,7 @@ void FrameSender::compressOp() {
     auto destSize = LZ4_compress_default((char *) mapping.mappedRect.pBits, (char *) bufferHolder.buffer, bufferSize,
                                          bufferSize);
     assert(destSize != 0);
-    bufferHolder.extra = {mapping.frameDesc.Width, mapping.frameDesc.Height, mapping.mappedRect.Pitch};
+    bufferHolder.extra = {mapping.frameDesc.Width, mapping.frameDesc.Height};
     bufferHolder.usedSize = destSize;
     sendWaiting.enqueue(bufferHolder);
     compressFinished.enqueue(mapping);
@@ -65,7 +65,7 @@ void FrameSender::sendOp() {
 //    std::this_thread::sleep_for(std::chrono::seconds(1));
     if (enableDebugCheck)
         std::cerr << "sendOp, size: " << bufferHolder.usedSize << "\n";
-    IMAGE_TYPE image{bufferHolder.extra.w, bufferHolder.extra.h, bufferHolder.extra.pitch, bufferHolder.usedSize};
+    IMAGE_TYPE image{bufferHolder.extra.w, bufferHolder.extra.h, bufferHolder.usedSize};
     socket->send(&image, sizeof(IMAGE_TYPE));
     socket->send(bufferHolder.buffer, bufferHolder.usedSize);
     sendFinished.enqueue(bufferHolder);
