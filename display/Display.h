@@ -5,7 +5,7 @@
 #ifndef LEARNCPP11_DISPLAY_H
 #define LEARNCPP11_DISPLAY_H
 
-
+#include "RenderTarget.h"
 #include <GLFW/glfw3.h>
 
 typedef struct {
@@ -25,16 +25,20 @@ class Display {
     GLuint tex;
     void *texData;
     GLuint pbo;
+    RenderTarget *renderTarget;
+    std::function<void(Display *)> pixelPtrAvailable = [](Display *) {};
 public:
     void setSize(int _width, int _height);
 
-    void init(int _width, int _height, int _texW, int _texH);
+    void run(int _width, int _height, int _texW, int _texH);
 
     void terminate();
 
     static void framebufferSizeCallback(GLFWwindow *window, int width, int height);
 
     uint32_t *getPixelPtr();
+
+    void setPixelPtrAvailable(std::function<void(Display *)> available);
 
     void uploadTex();
 };

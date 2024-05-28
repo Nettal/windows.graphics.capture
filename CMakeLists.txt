@@ -42,8 +42,10 @@ add_executable(display
         display/glad.h
         shared/network.cpp
         shared/shared.h
+        display/RenderTarget.cpp
+        display/RenderTarget.h
 )
 
-target_link_libraries(display glfw3)
+target_link_libraries(display glfw3 ws2_32)
 
 target_link_libraries(wgc D3D11 d3dcompiler lz4 ws2_32)

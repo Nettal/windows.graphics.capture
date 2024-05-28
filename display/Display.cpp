@@ -98,7 +98,7 @@ void APIENTRY debugOutput(GLenum source,
 
 class Shader {
 public:
-    unsigned int ID;
+    unsigned int ID{};
 
     // constructor generates the shader on the fly
     // ------------------------------------------------------------------------
@@ -174,6 +174,10 @@ public:
         glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
     }
 
+    void setInt(const std::string &name, GLuint value) const {
+        glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
+    }
+
     // ------------------------------------------------------------------------
     void setFloat(const std::string &name, float value) const {
         glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
@@ -218,78 +222,6 @@ private:
     }
 };
 
-class RenderTarget {
-    GLuint m_FBO{};
-    unsigned int rbo{};
-    // 一个用来存放上个pass的内容
-#define ATTACHMENT_NUM 1
-    GLuint m_AttachTexIds[ATTACHMENT_NUM] = {};
-    const GLenum attachments[ATTACHMENT_NUM] = {
-            GL_COLOR_ATTACHMENT1,
-    };
-    GLint defaultFrameBuffer = GL_NONE;
-    int w;
-    int h;
-public:
-    RenderTarget(int width, int height) : w(width), h(height) {
-        std::cout << "new RenderTarget w: " << w << " h: " << h << std::endl;
-        //生成帧缓冲区对象
-        glGenFramebuffers(1, &m_FBO);
-        bind();
-
-        glGenTextures(ATTACHMENT_NUM, static_cast<GLuint *>(m_AttachTexIds));
-        for (int i = 0; i < ATTACHMENT_NUM; ++i) {
-            glBindTexture(GL_TEXTURE_2D, m_AttachTexIds[i]);
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA,
-                         GL_UNSIGNED_BYTE, nullptr);
-            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, attachments[i], GL_TEXTURE_2D, m_AttachTexIds[i], 0);
-        }
-        glGenRenderbuffers(1, &rbo);
-        glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-        // use a single renderbuffer object for both a depth AND stencil buffer.
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
-        // now actually attach it
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
-                                  rbo);
-        // now that we actually created the framebuffer and added all attachments we want to check if it is actually complete now
-        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-        restore();
-    }
-
-    static int getTextureCount() {
-        return ATTACHMENT_NUM;
-    }
-
-    void getTextureIds(GLuint *ids) {
-        for (int i = 0; i < ATTACHMENT_NUM; ++i) {
-            ids[i] = m_AttachTexIds[i];
-        }
-    }
-
-    void bind() {
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &defaultFrameBuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, m_FBO);
-        glDrawBuffers(ATTACHMENT_NUM, attachments);
-    }
-
-    void restore() const {
-        glBindFramebuffer(GL_FRAMEBUFFER, defaultFrameBuffer);
-    }
-
-    void close() const {
-        for (int i = 0; i < ATTACHMENT_NUM; ++i) {
-            glDeleteTextures(1, &m_AttachTexIds[i]);
-        }
-        glDeleteFramebuffers(1, &m_FBO);
-        glDeleteRenderbuffers(1, &rbo);
-    }
-};
-
 class Mesh {
 
 public:
@@ -329,7 +261,7 @@ static void error_callback(int error, const char *description) {
     fprintf(stderr, "Error: %s\n", description);
 }
 
-void Display::init(int _width, int _height, int _texW, int _texH) {
+void Display::run(int _width, int _height, int _texW, int _texH) {
     width = _width;
     height = _height;
     texW = _texW;
@@ -370,7 +302,8 @@ void Display::init(int _width, int _height, int _texW, int _texH) {
 
     // build and compile our shader program
     // ------------------------------------
-    Shader shader("../display/display.vert", "../display/display.frag");
+    Shader displayShader("../display/display.vert", "../display/display.frag");
+    Shader diffShader("../display/differ.vert", "../display/differ.frag");
 
     int indices[] = {0, 1, 2, 0, 1, 3};
     // pos uv
@@ -395,12 +328,7 @@ void Display::init(int _width, int _height, int _texW, int _texH) {
 
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
-//    auto renderTarget = new RenderTarget(width, height);
-//    renderTarget->close();
-//    delete renderTarget;
     printf("%s %s %s\n", glGetString(GL_VERSION), glGetString(GL_RENDERER), glGetString(GL_VENDOR));
-    shader.use();
-    shader.setInt("tex", 0);
 
     glGenBuffers(1, &pbo);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->pbo);
@@ -408,42 +336,75 @@ void Display::init(int _width, int _height, int _texW, int _texH) {
     auto size = (int64_t) (texH * texW * sizeof(uint32_t));
     glBufferStorage(GL_PIXEL_UNPACK_BUFFER, size, nullptr, flags);
     texData = glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, size, flags);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-    std::thread([this] {
-        while (true) {
-            printf("wait tex upload\n");
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            printf("do tex upload\n");
-            auto *pix = getPixelPtr();
-            double all = texW * texH;
-            for (uint32_t j = 0; j < texW * texH; ++j) {
-                if (j < all * 0.25) {
-                    uint8_t p[4] = {255, 0, 0, 255};
-                    memcpy(&pix[j], p, sizeof(uint32_t));
-                } else if (j < all * 0.5) {
-                    uint8_t p[4] = {0, 255, 0, 255};
-                    memcpy(&pix[j], p, sizeof(uint32_t));
-                } else if (j < all * 0.75) {
-                    uint8_t p[4] = {0, 0, 255, 255};
-                    memcpy(&pix[j], p, sizeof(uint32_t));
-                } else {
-                    uint8_t p[4] = {0, 0, 0, 0};
-                    memcpy(&pix[j], p, sizeof(uint32_t));
-                }
-            }
-            uploadTex();
-        }
-    }).detach();
+    pixelPtrAvailable(this);
 
-    glActiveTexture(GL_TEXTURE0);
-    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+    renderTarget = new RenderTarget(width, height);
 
+    GLint diffSrcLocation = glGetUniformLocation(diffShader.ID, "src");
+    GLint diffBack0Location = glGetUniformLocation(diffShader.ID, "back0");
+    GLint diffBack1Location = glGetUniformLocation(diffShader.ID, "back1");
+    GLint diffOutIndexLocation = glGetUniformLocation(diffShader.ID, "outIndex");
+
+    GLint dispSrc0Location = glGetUniformLocation(displayShader.ID, "src0");
+    GLint dispSrc1Location = glGetUniformLocation(displayShader.ID, "src1");
+    GLint dispSrcIndexLocation = glGetUniformLocation(displayShader.ID, "srcIndex");
+
+    bool destIsZero = true;
     while (!glfwWindowShouldClose(window)) {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        mesh.draw();
+        renderTarget->bind();
+        {
+            diffShader.use();
+//            glClearColor(1.0f, 1.0f, 0.f, 1.0f);
+//            glClear(GL_COLOR_BUFFER_BIT);
+
+            glUniform1i(diffSrcLocation, (int) tex);
+            glActiveTexture(GL_TEXTURE0 + tex);
+            glBindTexture(GL_TEXTURE_2D, tex);
+
+            int back0 = (int) renderTarget->getTextureId(0);
+            glUniform1i(diffBack0Location, back0);
+            glActiveTexture(GL_TEXTURE0 + back0);
+            glBindTexture(GL_TEXTURE_2D, back0);
+
+            int back1 = (int) renderTarget->getTextureId(1);
+            glUniform1i(diffBack1Location, back1);
+            glActiveTexture(GL_TEXTURE0 + back1);
+            glBindTexture(GL_TEXTURE_2D, back1);
+
+            glUniform1i(diffOutIndexLocation, destIsZero ? 0 : 1);
+
+            mesh.draw();
+        }
+        renderTarget->restore();
+        {
+            displayShader.use();
+//            glClearColor(0.f, 0.f, 1.f, 1.0f);
+//            glClear(GL_COLOR_BUFFER_BIT);
+
+            int src0 = (int) renderTarget->getTextureId(0);
+            glUniform1i(dispSrc0Location, src0);
+            glActiveTexture(GL_TEXTURE0 + src0);
+            glBindTexture(GL_TEXTURE_2D, src0);
+
+            int src1 = (int) renderTarget->getTextureId(1);
+            glUniform1i(dispSrc1Location, src1);
+            glActiveTexture(GL_TEXTURE0 + src1);
+            glBindTexture(GL_TEXTURE_2D, src1);
+
+            glUniform1i(dispSrcIndexLocation, destIsZero ? 0 : 1);
+
+            mesh.draw();
+        }
+
+        destIsZero = !destIsZero;
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+    renderTarget->close();
+    delete renderTarget;
 }
 
 void Display::terminate() {
@@ -454,6 +415,10 @@ uint32_t *Display::getPixelPtr() {
     return (uint32_t *) (texData);
 }
 
+void Display::setPixelPtrAvailable(std::function<void(Display *)> available) {
+    this->pixelPtrAvailable = available;
+}
+
 void Display::uploadTex() {
     glfwMakeContextCurrent(sharedThread);
     glDebugMessageCallback(reinterpret_cast<GLDEBUGPROC>(debugOutput), nullptr);
@@ -461,6 +426,7 @@ void Display::uploadTex() {
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texW, texH, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
     glFinish();
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -476,11 +442,72 @@ void Display::setSize(int _width, int _height) {
     this->width = _width;
     this->height = _height;
     glViewport(0, 0, width, height);
+    renderTarget->close();
+    delete renderTarget;
+    renderTarget = new RenderTarget(width, height);
 }
 
+#include <random>
+
+std::random_device rd;//非确定性随机数生成器
+std::mt19937 gen(rd()); //使用Mersenne twister算法随机数生成器
+std::uniform_int_distribution<> distrib(0, UINT32_MAX); //随机均匀分布[1,6]区间
+
+// [0,1]
+float nRandom() {
+    return (float) distrib(gen) / (float) UINT32_MAX;
+}
+
+int multiply(float a, int b) {
+    return a * b;
+}
+
+uint8_t rand8() {
+    return nRandom() * 255;
+}
+
+static std::chrono::steady_clock::time_point start;
+static float frameCount = 0;
 
 int main() {
     Display display{};
-    display.init(1024, 768, 1024, 768);
+    int texW = 1024;
+    int texH = 768;
+    display.setPixelPtrAvailable([texW, texH](Display *dpy) {
+        std::thread([dpy, texW, texH] {
+            while (true) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                auto *pix = dpy->getPixelPtr();
+                double all = texW * texH;
+                for (uint32_t j = 0; j < texW * texH; ++j) {
+                    if (j < all * 0.25) {
+                        uint8_t p[4] = {255, 0, 0, 255};
+                        memcpy(&pix[j], p, sizeof(uint32_t));
+                    } else if (j < all * 0.5) {
+                        uint8_t p[4] = {0, 255, 0, 255};
+                        memcpy(&pix[j], p, sizeof(uint32_t));
+                    } else if (j < all * 0.75) {
+                        uint8_t p[4] = {0, 0, 255, 255};
+                        memcpy(&pix[j], p, sizeof(uint32_t));
+                    } else {
+                        uint8_t p[4] = {0, 0, 0, 0};
+                        memcpy(&pix[j], p, sizeof(uint32_t));
+                    }
+                }
+                dpy->uploadTex();
+                frameCount++;
+                std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+                std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+                float sec = (float) ms.count() / 1000.f;
+                if (sec > 5) {
+                    float frame_rate = frameCount / sec;
+                    start = end;
+                    mw_debug("FPS: %f", frame_rate);
+                    frameCount = 0;
+                }
+            }
+        }).detach();
+    });
+    display.run(1024, 768, texW, texH);
     display.terminate();
 }
