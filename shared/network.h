@@ -37,4 +37,6 @@ private:
     struct sockaddr_in addr{};
 };
 
+void mw_read_all(int handle, void *basePtr_, int64_t len);
+
 #endif //BRIDGE_NETWORK_H

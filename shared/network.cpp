@@ -91,3 +91,29 @@ int TheClient::cConnectRaw(bool *success) {
     *success = true;
     return sock;
 }
+
+int64_t mw_read(int handle, void *dest, int64_t len) {
+    assert(len != 0);
+    return ::recv(handle, (char *) dest, (int) len, 0);
+}
+
+
+void mw_read_all(int handle, void *basePtr_, int64_t len) {
+    auto *basePtr = (int8_t *) basePtr_;
+    assert(len != 0);
+    int64_t result = 1;
+    int64_t baseSize = len;
+    int64_t sum = 0;
+    while (result > 0) {
+        result = ::mw_read(handle, basePtr, baseSize);
+        sum += result;
+        basePtr += result;
+        baseSize -= result;
+        if (result == -1) {
+            mw_fatal("Error while receiving , received %lld expect %zu", sum, len);
+        }
+        if (sum == len)
+            return;
+    }
+    assert(0);
+}

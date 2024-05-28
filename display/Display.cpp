@@ -6,6 +6,8 @@
 #include "Display.h"
 #include <GLFW/glfw3.h>
 #include "shared/log_helper.h"
+#include "shared/network.h"
+#include "shared/shared.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -473,31 +475,28 @@ int main() {
     Display display{};
     int texW = 1024;
     int texH = 768;
-    display.setPixelPtrAvailable([texW, texH](Display *dpy) {
-        std::thread([dpy, texW, texH] {
+    TheClient client("127.0.0.1", 37385);
+    int sock = client.cConnect();
+    IMAGE_TYPE type{};
+    mw_read_all(sock, (char *) (&type), sizeof(IMAGE_TYPE));
+    texW = type.w;
+    texH = type.h;
+    display.setPixelPtrAvailable([sock, type](Display *dpy) {
+        std::thread([dpy, sock, type] {
+            bool first = true;
             while (true) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 auto *pix = dpy->getPixelPtr();
-                double all = texW * texH;
-                for (uint32_t j = 0; j < texW * texH; ++j) {
-                    if (j < all * 0.25) {
-                        uint8_t p[4] = {255, 0, 0, 255};
-                        memcpy(&pix[j], p, sizeof(uint32_t));
-                    } else if (j < all * 0.5) {
-                        uint8_t p[4] = {0, 255, 0, 255};
-                        memcpy(&pix[j], p, sizeof(uint32_t));
-                    } else if (j < all * 0.75) {
-                        uint8_t p[4] = {0, 0, 255, 255};
-                        memcpy(&pix[j], p, sizeof(uint32_t));
-                    } else {
-                        uint8_t p[4] = {0, 0, 0, 0};
-                        memcpy(&pix[j], p, sizeof(uint32_t));
-                    }
+                if (first) {
+                    mw_read_all(sock, (char *) (pix), type.size);
+                    first = false;
+                } else {
+                    mw_read_all(sock, (char *) (&type), sizeof(IMAGE_TYPE));
+                    mw_read_all(sock, (char *) (pix), type.size);
                 }
                 dpy->uploadTex();
                 frameCount++;
                 std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-                std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+                auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
                 float sec = (float) ms.count() / 1000.f;
                 if (sec > 5) {
                     float frame_rate = frameCount / sec;
