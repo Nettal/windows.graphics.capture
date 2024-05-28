@@ -55,13 +55,13 @@ class FrameSender {
     int running{};
     static constexpr bool enableDebugCheck = false;
     size_t globalQueueSize{};
-    std::shared_ptr<TheServer> socket;
+    int64_t socket;
 
     void sendOp();
 
     void compressOp();
 
-    FrameSender(const std::initializer_list<DXGIMapping> &slot, std::shared_ptr<TheServer> socket);
+    FrameSender(const std::initializer_list<DXGIMapping> &slot, int64_t socket);
 
 public:
 
@@ -71,7 +71,7 @@ public:
 
     void start();
 
-    explicit FrameSender(const D3D11Context &ctx, SIZE2D frameSize, std::shared_ptr<TheServer> socket);
+    explicit FrameSender(const D3D11Context &ctx, SIZE2D frameSize, int64_t socket);
 
     explicit FrameSender() = default;
 

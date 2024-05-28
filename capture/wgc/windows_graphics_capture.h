@@ -14,7 +14,7 @@ extern "C"{
 
 typedef void (*WgcOnFrameArrive)(OnFrameArriveParameter *onFrameArriveParameter, OnFrameArriveRet *ret);
 
-void *wgc_initial_everything(HMONITOR monitorToCapture, SIZE2D *frameSize, ID3D11Device *d3d11Device);
+void *wgc_initial_everything(HMONITOR monitorToCapture, SIZE2D *frameSize, ID3D11Device *d3d11Device, int bufferNum);
 
 void wgc_do_capture_on_this_thread(void *, WgcOnFrameArrive frameArrive, void *userPtr);
 

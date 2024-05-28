@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <cassert>
 
-#define CHECK_RESULT(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d",__FILE__, __LINE__);}} while(0)
+#define CHECK_RESULT(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d\n",__FILE__, __LINE__);}} while(0)
 
 DXGIMapping::DXGIMapping(ID3D11Device *d3d11Device, SIZE2D currentTextureSize,
                          ID3D11DeviceContext *deviceCtx) : deviceCtx(deviceCtx), d3d11Device(d3d11Device) {

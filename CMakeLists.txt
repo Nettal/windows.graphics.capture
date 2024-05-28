@@ -7,15 +7,13 @@ include_directories(.)
 
 add_executable(wgc
         capture/wgc/windows_graphics_capture.c
-        main.h
         capture/wgc/CallbackImpl.c
         capture/wgc/CallbackImpl.h
         capture/wgc/IIDUtils.c
         capture/wgc/IIDUtils.h
         capture/wgc/include/windows.graphics.directx.direct3d11.interop.h
         capture/wgc/IDirect3DDxgiInterfaceAccess.h
-        main.cpp
-        main.h
+        capture/main.cpp
         capture/FrameProcessor.cpp
         capture/FrameProcessor.h
         shared/log_helper.c

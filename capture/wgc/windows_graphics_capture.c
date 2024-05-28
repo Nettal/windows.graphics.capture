@@ -182,7 +182,7 @@ void wgc_do_capture_on_this_thread(void *field, WgcOnFrameArrive frameArrive, vo
 }
 
 void *
-wgc_initial_everything(HMONITOR monitorToCapture, SIZE2D *frameSize, ID3D11Device *d3d11Device) {
+wgc_initial_everything(HMONITOR monitorToCapture, SIZE2D *frameSize, ID3D11Device *d3d11Device, int bufferNum) {
     WGC_INTERNAL_FILED *wif = calloc(sizeof(struct WGC_INTERNAL_FILED), 1);
     wif->d3d11Device = d3d11Device;
     CoInitialize(0);
@@ -206,7 +206,7 @@ wgc_initial_everything(HMONITOR monitorToCapture, SIZE2D *frameSize, ID3D11Devic
             iid_utils_guidFrom("cafcb56c-6ac3-4889-bf47-9e23bbd260ec"),
             iid_utils_guidFrom("6f15aaf2-d208-4e89-9ab4-489535d34f9c"),
             1, d3d11Device, *frameSize, wif->ciDirect3DDevice,
-            2, 0, 0};
+            bufferNum, 0, 0};
     // maybe try CreateFreeThreaded
     ret = direct3D11CaptureFramePoolStaticsFunc()->lpVtbl->Create(direct3D11CaptureFramePoolStaticsFunc(),
                                                                   wif->ciDirect3DDevice,

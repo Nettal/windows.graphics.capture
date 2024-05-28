@@ -52,20 +52,6 @@ int TheServer::sAccept() const {
     return r;
 }
 
-bool TheServer::send(const void *basePtr, int64_t len) const {
-    assert(len != 0);
-    int64_t result;
-#ifdef __linux
-    result = ::send(sock, basePtr, len, 0);
-#elif defined(WIN32)
-    result = ::send(sock, (const char *) basePtr, (int) len, 0);
-#else
-#error ""
-#endif
-    assert(result == len);
-    return true;
-}
-
 TheClient::TheClient(const char *address, int port) {
     preInit();
     sock = (int) ::socket(AF_INET, SOCK_STREAM, 0);
@@ -116,4 +102,18 @@ void mw_read_all(int handle, void *basePtr_, int64_t len) {
             return;
     }
     assert(0);
+}
+
+bool mw_send(int64_t handle, const void *basePtr, int64_t len) {
+    assert(len != 0);
+    int64_t result;
+#ifdef __linux
+    result = ::send((int)handle, basePtr, len, 0);
+#elif defined(WIN32)
+    result = ::send(handle, (const char *) basePtr, (int) len, 0);
+#else
+#error ""
+#endif
+    assert(result == len);
+    return true;
 }

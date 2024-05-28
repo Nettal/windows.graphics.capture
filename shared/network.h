@@ -17,8 +17,6 @@ public:
 
     int sAccept() const;
 
-    bool send(const void *basePtr, int64_t len) const;
-
 private:
     int sock;
     struct sockaddr_in addr{};
@@ -38,5 +36,7 @@ private:
 };
 
 void mw_read_all(int handle, void *basePtr_, int64_t len);
+
+bool mw_send(int64_t handle, const void *basePtr, int64_t len);
 
 #endif //BRIDGE_NETWORK_H

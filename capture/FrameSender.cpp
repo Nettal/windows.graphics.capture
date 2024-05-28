@@ -17,13 +17,13 @@ void FrameSender::waitRequireSlot(const FrameSender::SlotSupplier &supplier) {
     checkQueueSize();
 }
 
-FrameSender::FrameSender(const std::initializer_list<DXGIMapping> &slot, std::shared_ptr<TheServer> socket)
+FrameSender::FrameSender(const std::initializer_list<DXGIMapping> &slot, int64_t socket)
         : compressWaiting{slot.size()},
           compressFinished{slot.size()},
           sendWaiting(slot.size()),
           sendFinished(slot.size()),
           globalQueueSize(slot.size()),
-          socket(std::move(socket)) {
+          socket(socket) {
     compressFinished.enqueue_bulk(slot.begin(), slot.size());
     std::vector<FrameBuffer> buffers{slot.size()};
     sendFinished.enqueue_bulk(buffers.begin(), buffers.size());
@@ -66,8 +66,8 @@ void FrameSender::sendOp() {
     if (enableDebugCheck)
         std::cerr << "sendOp, size: " << bufferHolder.usedSize << "\n";
     IMAGE_TYPE image{bufferHolder.extra.w, bufferHolder.extra.h, bufferHolder.usedSize};
-    socket->send(&image, sizeof(IMAGE_TYPE));
-    socket->send(bufferHolder.buffer, bufferHolder.usedSize);
+    mw_send(socket, &image, sizeof(IMAGE_TYPE));
+    mw_send(socket, bufferHolder.buffer, bufferHolder.usedSize);
     sendFinished.enqueue(bufferHolder);
     checkQueueSize();
 }
@@ -88,7 +88,7 @@ void FrameSender::start() {
     }};
 }
 
-FrameSender::FrameSender(const D3D11Context &ctx, SIZE2D frameSize, std::shared_ptr<TheServer> socket) : FrameSender(
+FrameSender::FrameSender(const D3D11Context &ctx, SIZE2D frameSize, int64_t socket) : FrameSender(
         {DXGIMapping{ctx.d3d11Device, frameSize, ctx.deviceCtx},
          DXGIMapping{ctx.d3d11Device, frameSize, ctx.deviceCtx}}, std::move(socket)) {
 }

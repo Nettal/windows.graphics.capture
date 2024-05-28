@@ -29,6 +29,6 @@ SIZE2D WGCCapture::currentFrameSize() {
     return frameSize;
 }
 
-WGCCapture::WGCCapture(const D3D11Context &ctx) {
-    wgc_c_internal = wgc_initial_everything(nullptr, &frameSize, ctx.d3d11Device);
+WGCCapture::WGCCapture(const D3D11Context &ctx, HMONITOR monitorToCapture, int bufferNum) {
+    wgc_c_internal = wgc_initial_everything(monitorToCapture, &frameSize, ctx.d3d11Device, bufferNum);
 }

@@ -14,7 +14,7 @@ class WGCCapture : public AbstractCapture {
     SIZE2D frameSize{};
     bool running{};
 public:
-    explicit WGCCapture(const D3D11Context &ctx);
+    explicit WGCCapture(const D3D11Context &ctx, HMONITOR monitorToCapture = nullptr, int bufferNum = 2);
 
     void start(OnFrameArrive para) final;
 
