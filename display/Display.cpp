@@ -10,6 +10,7 @@
 #include <fstream>
 #include <sstream>
 #include <thread>
+#include <cstring>
 
 void APIENTRY debugOutput(GLenum source,
                           GLenum type,
@@ -337,16 +338,17 @@ void Display::init(int _width, int _height, int _texW, int _texH) {
     glfwSetErrorCallback(error_callback);
 
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+    glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
 
     // glfw window creation
     // --------------------
     window = glfwCreateWindow(width, height, "Test", nullptr, nullptr);
-//    sharedThread = glfwCreateWindow(1, 1, "Shared", nullptr, window);
-//    glfwHideWindow(sharedThread);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    sharedThread = glfwCreateWindow(1, 1, "Shared", nullptr, window);
     glfwSetWindowUserPointer(window, this);
     if (window == nullptr) {
         glfwTerminate();
@@ -365,9 +367,8 @@ void Display::init(int _width, int _height, int _texW, int _texH) {
     glDebugMessageCallback(reinterpret_cast<GLDEBUGPROC>(debugOutput), nullptr);
     // configure global opengl state
     // -----------------------------
-    glEnable(GL_DEPTH_TEST);
 
-    // build and compile our shader zprogram
+    // build and compile our shader program
     // ------------------------------------
     Shader shader("../display/display.vert", "../display/display.frag");
 
@@ -381,9 +382,11 @@ void Display::init(int _width, int _height, int _texW, int _texH) {
 
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texW, texH, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     MeshData meshData = {sizeof(indices), indices, sizeof(verts), verts};
     GLuint vao;
@@ -399,36 +402,44 @@ void Display::init(int _width, int _height, int _texW, int _texH) {
     shader.use();
     shader.setInt("tex", 0);
 
-//    std::thread([this] {
-//        printf("wait tex upload\n");
-//        std::this_thread::sleep_for(std::chrono::seconds(3));
-    printf("do tex upload\n");
-    auto *pix = (uint32_t *) calloc(texW * texH, sizeof(uint32_t));
-    double all = texW * texH;
-    for (uint32_t j = 0; j < texW * texH; ++j) {
-        if (j < all * 0.25) {
-            uint8_t p[4] = {255, 0, 0, 255};
-            memcpy(&pix[j], p, sizeof(uint32_t));
-        } else if (j < all * 0.5) {
-            uint8_t p[4] = {0, 255, 0, 255};
-            memcpy(&pix[j], p, sizeof(uint32_t));
-        } else if (j < all * 0.75) {
-            uint8_t p[4] = {0, 0, 255, 255};
-            memcpy(&pix[j], p, sizeof(uint32_t));
-        } else {
-            uint8_t p[4] = {0, 0, 0, 0};
-            memcpy(&pix[j], p, sizeof(uint32_t));
-        }
-    }
-    uploadTex(pix);
-    free(pix);
-//    }).detach();
+    glGenBuffers(1, &pbo);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->pbo);
+    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
+    auto size = (int64_t) (texH * texW * sizeof(uint32_t));
+    glBufferStorage(GL_PIXEL_UNPACK_BUFFER, size, nullptr, flags);
+    texData = glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, size, flags);
 
+    std::thread([this] {
+        while (true) {
+            printf("wait tex upload\n");
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            printf("do tex upload\n");
+            auto *pix = getPixelPtr();
+            double all = texW * texH;
+            for (uint32_t j = 0; j < texW * texH; ++j) {
+                if (j < all * 0.25) {
+                    uint8_t p[4] = {255, 0, 0, 255};
+                    memcpy(&pix[j], p, sizeof(uint32_t));
+                } else if (j < all * 0.5) {
+                    uint8_t p[4] = {0, 255, 0, 255};
+                    memcpy(&pix[j], p, sizeof(uint32_t));
+                } else if (j < all * 0.75) {
+                    uint8_t p[4] = {0, 0, 255, 255};
+                    memcpy(&pix[j], p, sizeof(uint32_t));
+                } else {
+                    uint8_t p[4] = {0, 0, 0, 0};
+                    memcpy(&pix[j], p, sizeof(uint32_t));
+                }
+            }
+            uploadTex();
+        }
+    }).detach();
+
+    glActiveTexture(GL_TEXTURE0);
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
     while (!glfwWindowShouldClose(window)) {
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glActiveTexture(GL_TEXTURE0);
         mesh.draw();
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -439,10 +450,17 @@ void Display::terminate() {
     glfwTerminate();
 }
 
-void Display::uploadTex(void *pixels) {
-//    glfwMakeContextCurrent(sharedThread);
+uint32_t *Display::getPixelPtr() {
+    return (uint32_t *) (texData);
+}
+
+void Display::uploadTex() {
+    glfwMakeContextCurrent(sharedThread);
+    glDebugMessageCallback(reinterpret_cast<GLDEBUGPROC>(debugOutput), nullptr);
     glBindTexture(GL_TEXTURE_2D, tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texW, texH, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texW, texH, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
+    glFinish();
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes

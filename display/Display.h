@@ -23,6 +23,8 @@ class Display {
     int texW;
     int texH;
     GLuint tex;
+    void *texData;
+    GLuint pbo;
 public:
     void setSize(int _width, int _height);
 
@@ -32,7 +34,9 @@ public:
 
     static void framebufferSizeCallback(GLFWwindow *window, int width, int height);
 
-    void uploadTex(void *pixels);
+    uint32_t *getPixelPtr();
+
+    void uploadTex();
 };
 
 
