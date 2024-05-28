@@ -3,7 +3,7 @@
 //
 
 #include "main.h"
-#include "capture/WindowsGraphicsCapture.h"
+#include "capture/FrameProcessor.h"
 #include "capture/wgc/WGCCapture.h"
 #include "shared/network.h"
 

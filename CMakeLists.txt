@@ -16,8 +16,8 @@ add_executable(wgc
         capture/wgc/IDirect3DDxgiInterfaceAccess.h
         main.cpp
         main.h
-        capture/WindowsGraphicsCapture.cpp
-        capture/WindowsGraphicsCapture.h
+        capture/FrameProcessor.cpp
+        capture/FrameProcessor.h
         shared/log_helper.c
         shared/stb_image_write.c
         capture/FrameSender.cpp

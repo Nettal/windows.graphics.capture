@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include <utility>
-#include "WindowsGraphicsCapture.h"
+#include "FrameProcessor.h"
 #include "shared/stb_image_write.h"
 
 static const auto hlsl_shader =
