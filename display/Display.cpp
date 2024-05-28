@@ -13,6 +13,7 @@
 #include <sstream>
 #include <thread>
 #include <cstring>
+#include <lz4.h>
 
 void APIENTRY debugOutput(GLenum source,
                           GLenum type,
@@ -332,6 +333,7 @@ void Display::run(int _width, int _height, int _texW, int _texH) {
     glViewport(0, 0, width, height);
     printf("%s %s %s\n", glGetString(GL_VERSION), glGetString(GL_RENDERER), glGetString(GL_VENDOR));
 
+#if ENABLE_PBO
     glGenBuffers(1, &pbo);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->pbo);
     GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
@@ -339,7 +341,7 @@ void Display::run(int _width, int _height, int _texW, int _texH) {
     glBufferStorage(GL_PIXEL_UNPACK_BUFFER, size, nullptr, flags);
     texData = glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, size, flags);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
+#endif
     pixelPtrAvailable(this);
 
     renderTarget = new RenderTarget(width, height);
@@ -413,23 +415,43 @@ void Display::terminate() {
     glfwTerminate();
 }
 
-uint32_t *Display::getPixelPtr() {
-    return (uint32_t *) (texData);
-}
-
 void Display::setPixelPtrAvailable(std::function<void(Display *)> available) {
     this->pixelPtrAvailable = available;
 }
 
+static bool madeContext = false;
+
+#if ENABLE_PBO
+
+uint32_t *Display::getPixelPtr() {
+    return (uint32_t *) (texData);
+}
+
 void Display::uploadTex() {
-    glfwMakeContextCurrent(sharedThread);
-    glDebugMessageCallback(reinterpret_cast<GLDEBUGPROC>(debugOutput), nullptr);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+    if (!madeContext) {
+        glfwMakeContextCurrent(sharedThread);
+        glDebugMessageCallback(reinterpret_cast<GLDEBUGPROC>(debugOutput), nullptr);
+        madeContext = true;
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+    }
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texW, texH, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
     glFinish();
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
+#else
+
+void Display::uploadTex(void *pixel) {
+    if (!madeContext) {
+        glfwMakeContextCurrent(sharedThread);
+        glDebugMessageCallback(reinterpret_cast<GLDEBUGPROC>(debugOutput), nullptr);
+        madeContext = true;
+        glBindTexture(GL_TEXTURE_2D, tex);
+    }
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texW, texH, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixel);
+    glFinish();
+}
+
+#endif
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
@@ -484,16 +506,22 @@ int main() {
     display.setPixelPtrAvailable([sock, type](Display *dpy) {
         std::thread([dpy, sock, type] {
             bool first = true;
+            void *tmp = calloc(sizeof(uint32_t), type.w * type.h);
+            void *tex = calloc(sizeof(uint32_t), type.w * type.h);
             while (true) {
-                auto *pix = dpy->getPixelPtr();
                 if (first) {
-                    mw_read_all(sock, (char *) (pix), type.size);
+                    mw_read_all(sock, (char *) (tmp), type.size);
                     first = false;
                 } else {
                     mw_read_all(sock, (char *) (&type), sizeof(IMAGE_TYPE));
-                    mw_read_all(sock, (char *) (pix), type.size);
+                    mw_read_all(sock, (char *) (tmp), type.size);
                 }
-                dpy->uploadTex();
+                int r = LZ4_decompress_safe((const char *) tmp, (char *) (tex), type.size,
+                                            type.w * type.h * sizeof(uint32_t));
+                if (r < 0) {
+                    assert(0);
+                }
+                dpy->uploadTex(tex);
                 frameCount++;
                 std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
                 auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -507,6 +535,6 @@ int main() {
             }
         }).detach();
     });
-    display.run(1024, 768, texW, texH);
+    display.run(texW / 2, texH / 2, texW, texH);
     display.terminate();
 }

@@ -15,6 +15,8 @@ typedef struct {
     float *verts;
 } MeshData;
 
+#define ENABLE_PBO false
+
 class Display {
     GLFWwindow *window;
     GLFWwindow *sharedThread;
@@ -24,7 +26,9 @@ class Display {
     int texH;
     GLuint tex;
     void *texData;
+#if ENABLE_PBO
     GLuint pbo;
+#endif
     RenderTarget *renderTarget;
     std::function<void(Display *)> pixelPtrAvailable = [](Display *) {};
 public:
@@ -36,11 +40,17 @@ public:
 
     static void framebufferSizeCallback(GLFWwindow *window, int width, int height);
 
+#if ENABLE_PBO
     uint32_t *getPixelPtr();
+    void uploadTex();
+#else
+
+    void uploadTex(void *pixel);
+
+#endif
 
     void setPixelPtrAvailable(std::function<void(Display *)> available);
 
-    void uploadTex();
 };
 
 
