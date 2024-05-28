@@ -1,7 +1,10 @@
 #version 330
 
-layout (location = 0) in vec2 vaPos;
+layout (location = 0) in vec4 vaIn;
+
+out vec2 uv;
 
 void main() {
-    gl_Position = vec4(vec3(vec2(vaPos), 0.5), 1.0);
+    uv = vaIn.zw;
+    gl_Position = vec4(vec3(vec2(vaIn.xy), 0.5), 1.0);
 }

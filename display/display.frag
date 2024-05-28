@@ -1,5 +1,10 @@
 #version 330
 
+in vec2 uv;
+
+uniform sampler2D tex;
+
 void main() {
-    gl_FragColor = vec4(0.0, 0.8, 0.8, 1.0);
+    vec4 color = texture(tex, uv);
+    gl_FragColor = color;
 }

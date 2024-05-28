@@ -17,16 +17,22 @@ typedef struct {
 
 class Display {
     GLFWwindow *window;
+    GLFWwindow *sharedThread;
     int width;
     int height;
+    int texW;
+    int texH;
+    GLuint tex;
 public:
-    void setSize(int width, int height);
+    void setSize(int _width, int _height);
 
-    void init(int width, int height);
+    void init(int _width, int _height, int _texW, int _texH);
 
     void terminate();
 
     static void framebufferSizeCallback(GLFWwindow *window, int width, int height);
+
+    void uploadTex(void *pixels);
 };
 
 

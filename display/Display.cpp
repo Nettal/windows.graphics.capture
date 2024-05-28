@@ -9,6 +9,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <thread>
 
 void APIENTRY debugOutput(GLenum source,
                           GLenum type,
@@ -306,7 +307,7 @@ public:
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, data.sizeOfIndices, data.indices, GL_STATIC_DRAW);
 
         // position attribute
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (void *) 0);
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 4, (void *) 0);
         glEnableVertexAttribArray(0);
 
         elementCount = data.sizeOfIndices / sizeof(int);
@@ -323,10 +324,18 @@ public:
     }
 };
 
-void Display::init(int _width, int _height) {
+static void error_callback(int error, const char *description) {
+    fprintf(stderr, "Error: %s\n", description);
+}
+
+void Display::init(int _width, int _height, int _texW, int _texH) {
     width = _width;
     height = _height;
+    texW = _texW;
+    texH = _texH;
     // ------------------------------
+    glfwSetErrorCallback(error_callback);
+
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -336,6 +345,8 @@ void Display::init(int _width, int _height) {
     // glfw window creation
     // --------------------
     window = glfwCreateWindow(width, height, "Test", nullptr, nullptr);
+//    sharedThread = glfwCreateWindow(1, 1, "Shared", nullptr, window);
+//    glfwHideWindow(sharedThread);
     glfwSetWindowUserPointer(window, this);
     if (window == nullptr) {
         glfwTerminate();
@@ -360,8 +371,20 @@ void Display::init(int _width, int _height) {
     // ------------------------------------
     Shader shader("../display/display.vert", "../display/display.frag");
 
-    int indices[] = {0, 1, 2};
-    float verts[] = {-0.75, -0.75, 0.75, -0.75, 0, 0.75};
+    int indices[] = {0, 1, 2, 0, 1, 3};
+    // pos uv
+    float verts[] = {-1, -1, 0, 1,
+                     1, 1, 1, 0,
+                     1, -1, 1, 1,
+                     -1, 1, 0, 0
+    };
+
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texW, texH, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
     MeshData meshData = {sizeof(indices), indices, sizeof(verts), verts};
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -374,10 +397,38 @@ void Display::init(int _width, int _height) {
 //    delete renderTarget;
     printf("%s %s %s\n", glGetString(GL_VERSION), glGetString(GL_RENDERER), glGetString(GL_VENDOR));
     shader.use();
+    shader.setInt("tex", 0);
+
+//    std::thread([this] {
+//        printf("wait tex upload\n");
+//        std::this_thread::sleep_for(std::chrono::seconds(3));
+    printf("do tex upload\n");
+    auto *pix = (uint32_t *) calloc(texW * texH, sizeof(uint32_t));
+    double all = texW * texH;
+    for (uint32_t j = 0; j < texW * texH; ++j) {
+        if (j < all * 0.25) {
+            uint8_t p[4] = {255, 0, 0, 255};
+            memcpy(&pix[j], p, sizeof(uint32_t));
+        } else if (j < all * 0.5) {
+            uint8_t p[4] = {0, 255, 0, 255};
+            memcpy(&pix[j], p, sizeof(uint32_t));
+        } else if (j < all * 0.75) {
+            uint8_t p[4] = {0, 0, 255, 255};
+            memcpy(&pix[j], p, sizeof(uint32_t));
+        } else {
+            uint8_t p[4] = {0, 0, 0, 0};
+            memcpy(&pix[j], p, sizeof(uint32_t));
+        }
+    }
+    uploadTex(pix);
+    free(pix);
+//    }).detach();
+
 
     while (!glfwWindowShouldClose(window)) {
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glActiveTexture(GL_TEXTURE0);
         mesh.draw();
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -388,12 +439,18 @@ void Display::terminate() {
     glfwTerminate();
 }
 
+void Display::uploadTex(void *pixels) {
+//    glfwMakeContextCurrent(sharedThread);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texW, texH, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+}
+
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
 void Display::framebufferSizeCallback(GLFWwindow *window, int width, int height) {
     // make sure the viewport matches the new window dimensions; note that width and
     // height will be significantly larger than specified on retina displays.
-    Display *p = (Display *) (glfwGetWindowUserPointer(window));
+    auto *p = (Display *) (glfwGetWindowUserPointer(window));
     p->setSize(width, height);
 }
 
@@ -405,7 +462,7 @@ void Display::setSize(int _width, int _height) {
 
 
 int main() {
-    Display display;
-    display.init(1024, 768);
+    Display display{};
+    display.init(1024, 768, 1024, 768);
     display.terminate();
 }
