@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <utility>
 #include "WindowsGraphicsCapture.h"
 #include "stb_image_write.h"
 
@@ -41,14 +42,13 @@ static const auto hlsl_shader =
         "}";
 #define CHECK_RESULT(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d\n",__FILE__, __LINE__);}} while(0)
 
-WindowsGraphicsCapture::WindowsGraphicsCapture(D3D11Context d3dContext,
-                                               const FrameSenderProvider &senderProvider,
-                                               WGC_SIZE2D textureSize) :
-        d3dContext(d3dContext), currentTextureSize(textureSize) {
-    sender = senderProvider();
+FrameProcessor::FrameProcessor(D3D11Context d3dContext,
+                               std::shared_ptr<FrameSender> sender,
+                               std::shared_ptr<AbstractCapture> capture) :
+        d3dContext(d3dContext), capture(std::move(capture)), sender(std::move(sender)) {
     vertexShaderBlob = compileShader(hlsl_shader, "vs_main", "vs_5_0");
     fragmentShaderBlob = compileShader(hlsl_shader, "ps_main", "ps_5_0");
-    createTextures(currentTextureSize, DXGI_FORMAT_B8G8R8A8_UNORM);
+    createTextures(this->capture->currentFrameSize(), DXGI_FORMAT_B8G8R8A8_UNORM);
     D3D11_BUFFER_DESC vertexInputDescriptor;
     vertexInputDescriptor.ByteWidth = deferredVertexInput.size() * sizeof(Vertex);
     vertexInputDescriptor.Usage = D3D11_USAGE_DEFAULT;
@@ -90,8 +90,7 @@ WindowsGraphicsCapture::WindowsGraphicsCapture(D3D11Context d3dContext,
     d3dContext.printDX11infos();
 }
 
-void WindowsGraphicsCapture::fitWGCFrame(WGC_SIZE2D newSize, enum DXGI_FORMAT format) {
-    currentTextureSize = newSize;
+void FrameProcessor::fitWGCFrame(SIZE2D newSize, enum DXGI_FORMAT format) {
     samplerImageAView->Release();
     samplerImageBView->Release();
     samplerImageZeroView->Release();
@@ -103,7 +102,8 @@ void WindowsGraphicsCapture::fitWGCFrame(WGC_SIZE2D newSize, enum DXGI_FORMAT fo
     createTextures(newSize, format);
 }
 
-void WindowsGraphicsCapture::createTextures(WGC_SIZE2D newSize, enum DXGI_FORMAT format) {
+void FrameProcessor::createTextures(SIZE2D newSize, enum DXGI_FORMAT format) {
+    currentTextureSize = newSize;
     D3D11_TEXTURE2D_DESC frame_desc{};
     frame_desc.Height = newSize.height;
     frame_desc.Width = newSize.width;
@@ -140,7 +140,7 @@ void WindowsGraphicsCapture::createTextures(WGC_SIZE2D newSize, enum DXGI_FORMAT
     CHECK_RESULT(hr);
 }
 
-void WindowsGraphicsCapture::doDiffer(ID3D11ShaderResourceView *newView, ID3D11ShaderResourceView *oldView) {
+void FrameProcessor::doDiffer(ID3D11ShaderResourceView *newView, ID3D11ShaderResourceView *oldView) {
     float clearColor[4] = {0.0f, 0.0f, 0.0f, 0.0f}; // 清空为黑色
     d3dContext.deviceCtx->ClearRenderTargetView(renderTargetImageView, clearColor);
 
@@ -171,8 +171,7 @@ void WindowsGraphicsCapture::doDiffer(ID3D11ShaderResourceView *newView, ID3D11S
     d3dContext.printDX11infos();
 }
 
-void WindowsGraphicsCapture::receiveWGCFrame(OnFrameArriveParameter *para, OnFrameArriveRet *ret) {
-    ret->running = running;
+void FrameProcessor::receiveWGCFrame(OnFrameArriveParameter *para) {
     frameCount++;
     if (((para->systemRelativeTime - frameTime) / 10'000'000.0) >= 1) {
         mw_info("fps:%f", frameCount / ((para->systemRelativeTime - frameTime) / 10'000'000.0));
@@ -205,24 +204,26 @@ void WindowsGraphicsCapture::receiveWGCFrame(OnFrameArriveParameter *para, OnFra
         oldView = samplerImageZeroView;
     }
     doDiffer(newView, oldView);
-    sender.waitRequireSlot([this](DXGIMapping &available) -> DXGIMapping & {
+    sender->waitRequireSlot([this](DXGIMapping &available) -> DXGIMapping & {
         available.copy(renderTargetTexture);
         return available;
     });
 }
 
-void WindowsGraphicsCapture::doCapture() {
-    running = 1;
-    sender.start();
+void FrameProcessor::doCapture() {
+    sender->start();
+    capture->start([this](OnFrameArriveParameter *para) {
+        receiveWGCFrame(para);
+    });
 }
 
-void WindowsGraphicsCapture::stopCapture() {
-    running = 0;
-    sender.stop();
+void FrameProcessor::stopCapture() {
+    sender->stop();
+    capture->stop();
 }
 
-ID3DBlob *WindowsGraphicsCapture::compileShader(const std::string &shader, const std::string &entrance,
-                                                const std::string &target) {
+ID3DBlob *FrameProcessor::compileShader(const std::string &shader, const std::string &entrance,
+                                        const std::string &target) {
     ID3DBlob *pBlob = nullptr;
     ID3DBlob *errorMsg = nullptr;
     int flags = D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_DEBUG;
@@ -236,6 +237,6 @@ ID3DBlob *WindowsGraphicsCapture::compileShader(const std::string &shader, const
     return pBlob;
 }
 
-void WindowsGraphicsCapture::refresh() {
+void FrameProcessor::refresh() {
     refreshSignal = 1;
 }

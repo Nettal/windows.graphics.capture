@@ -15,11 +15,11 @@ void FrameSender::waitRequireSlot(const FrameSender::SlotSupplier &supplier) {
     checkQueueSize();
 }
 
-FrameSender::FrameSender(const std::vector<DXGIMapping> &slot) : compressWaiting{slot.size()},
-                                                                 compressFinished{slot.size()},
-                                                                 sendWaiting(slot.size()),
-                                                                 sendFinished(slot.size()),
-                                                                 globalQueueSize(slot.size()) {
+FrameSender::FrameSender(const std::initializer_list<DXGIMapping> &slot) : compressWaiting{slot.size()},
+                                                                           compressFinished{slot.size()},
+                                                                           sendWaiting(slot.size()),
+                                                                           sendFinished(slot.size()),
+                                                                           globalQueueSize(slot.size()) {
     compressFinished.enqueue_bulk(slot.begin(), slot.size());
     std::vector<FrameBuffer> buffers{slot.size()};
     sendFinished.enqueue_bulk(buffers.begin(), buffers.size());
@@ -79,4 +79,9 @@ void FrameSender::start() {
         while (running)
             sendOp();
     }};
+}
+
+FrameSender::FrameSender(const D3D11Context& ctx, SIZE2D frameSize) : FrameSender(
+        {DXGIMapping{ctx.d3d11Device, frameSize, ctx.deviceCtx},
+         DXGIMapping{ctx.d3d11Device, frameSize, ctx.deviceCtx}}) {
 }

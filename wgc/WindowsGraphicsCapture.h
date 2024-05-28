@@ -13,11 +13,12 @@
 #include "log_helper.h"
 #include "FrameSender.h"
 #include "D3D11Context.h"
+#include "AbstractCapture.h"
 
-class WindowsGraphicsCapture {
+class FrameProcessor {
     // d3d
     D3D11Context d3dContext{};
-    WGC_SIZE2D currentTextureSize{};
+    SIZE2D currentTextureSize{};
     enum DXGI_FORMAT currentSamplerFormat{};
     ID3DBlob *vertexShaderBlob{};
     ID3DBlob *fragmentShaderBlob{};
@@ -49,26 +50,23 @@ class WindowsGraphicsCapture {
             {{1.0f,  1.0f,  0.0f}, {1.0f, 0.0f, 0, 0}},
             {{1.0f,  -1.0f, 0.0f}, {1.0f, 1.0f, 0, 0}}};
     // self
-    int running{};
     int preTextureIndex{}; // a is 0, b is 1
     int refreshSignal{};
-    FrameSender sender{};
+    std::shared_ptr<FrameSender> sender{};
+    std::shared_ptr<AbstractCapture> capture;
 
     void doDiffer(ID3D11ShaderResourceView *newView, ID3D11ShaderResourceView *oldView);
 
     static ID3DBlob *compileShader(const std::string &shader, const std::string &entrance, const std::string &target);
 
-    void fitWGCFrame(WGC_SIZE2D newSize, enum DXGI_FORMAT format);
+    void fitWGCFrame(SIZE2D newSize, enum DXGI_FORMAT format);
 
-    void createTextures(WGC_SIZE2D newSize, enum DXGI_FORMAT format);
+    void createTextures(SIZE2D newSize, enum DXGI_FORMAT format);
 
 public:
-
-    using FrameSenderProvider = std::function<FrameSender()>;
-
-    explicit WindowsGraphicsCapture(D3D11Context d3dContext,
-                                    const FrameSenderProvider &senderProvider,
-                                    WGC_SIZE2D textureSize);
+    explicit FrameProcessor(D3D11Context d3dContext,
+                            std::shared_ptr<FrameSender> sender,
+                            std::shared_ptr<AbstractCapture> capture);
 
     void doCapture();
 
@@ -76,7 +74,7 @@ public:
 
     void refresh();
 
-    void receiveWGCFrame(OnFrameArriveParameter *para, OnFrameArriveRet *ret);
+    void receiveWGCFrame(OnFrameArriveParameter *para);
 };
 
 

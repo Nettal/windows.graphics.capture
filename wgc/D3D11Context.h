@@ -19,6 +19,7 @@ public:
     void printDX11infos();
 
     explicit D3D11Context();
+    ~D3D11Context();
 };
 
 

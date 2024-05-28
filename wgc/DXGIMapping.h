@@ -22,7 +22,7 @@ public:
     D3D11_TEXTURE2D_DESC frameDesc{};
     DXGI_MAPPED_RECT mappedRect{};
 
-    explicit DXGIMapping(ID3D11Device *d3d11Device, WGC_SIZE2D currentTextureSize, ID3D11DeviceContext *deviceCtx);
+    explicit DXGIMapping(ID3D11Device *d3d11Device, SIZE2D currentTextureSize, ID3D11DeviceContext *deviceCtx);
 
     explicit DXGIMapping() = default;
 

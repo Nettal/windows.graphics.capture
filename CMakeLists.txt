@@ -26,6 +26,10 @@ add_executable(wgc
         wgc/DXGIMapping.h
         wgc/D3D11Context.cpp
         wgc/D3D11Context.h
+        AbstractCapture.h
+        wgc/WGCCapture.cpp
+        wgc/WGCCapture.h
+        CaptureShared.h
 )
 
 add_executable(display

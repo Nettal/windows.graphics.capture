@@ -10,29 +10,13 @@ extern "C"{
 
 #include <d3d11.h>
 #include "stdint.h"
+#include "CaptureShared.h"
 
-typedef struct WGC_SIZE2D {
-    int32_t width;
-    int32_t height;
-} WGC_SIZE2D;
+typedef void (*WgcOnFrameArrive)(OnFrameArriveParameter *onFrameArriveParameter, OnFrameArriveRet *ret);
 
-typedef struct OnFrameArriveParameter {
-    ID3D11Texture2D *d3d11Texture2D;
-    ID3D11Device *d3D11Device;
-    uint64_t systemRelativeTime;
-    WGC_SIZE2D frameSize;
-    void *userPtr;
-} OnFrameArriveParameter;
-typedef struct OnFrameArriveRet {
-    int running;
-} OnFrameArriveRet;
+void *wgc_initial_everything(HMONITOR monitorToCapture, SIZE2D *frameSize, ID3D11Device *d3d11Device);
 
-typedef void (*OnFrameArrive)(OnFrameArriveParameter *onFrameArriveParameter, OnFrameArriveRet *ret);
-
-void *
-wgc_initial_everything(HMONITOR monitorToCapture, WGC_SIZE2D *frameSize, ID3D11Device *d3d11Device);
-
-void wgc_do_capture_on_this_thread(void *, OnFrameArrive frameArrive, void *userPtr);
+void wgc_do_capture_on_this_thread(void *, WgcOnFrameArrive frameArrive, void *userPtr);
 
 #endif
 #ifdef __cplusplus

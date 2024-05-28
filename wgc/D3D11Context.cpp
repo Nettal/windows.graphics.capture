@@ -38,3 +38,10 @@ void D3D11Context::printDX11infos() {
     }
     debugInfoQueue->ClearStoredMessages();
 }
+
+D3D11Context::~D3D11Context() {
+    d3d11Device->Release();
+    deviceCtx->Release();
+    if (enableD3DDebug)
+        debugInfoQueue->Release();
+}

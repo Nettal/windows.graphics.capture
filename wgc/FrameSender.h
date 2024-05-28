@@ -9,6 +9,7 @@
 #include "windows_graphics_capture.h"
 #include "functional"
 #include "DXGIMapping.h"
+#include "D3D11Context.h"
 
 using moodycamel::BlockingConcurrentQueue;
 
@@ -67,7 +68,9 @@ public:
 
     void start();
 
-    explicit FrameSender(const std::vector<DXGIMapping> &slot);
+    FrameSender(const std::initializer_list<DXGIMapping> &slot);
+
+    explicit FrameSender(const D3D11Context &ctx, SIZE2D frameSize);
 
     explicit FrameSender() = default;
 
