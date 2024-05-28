@@ -10,7 +10,7 @@
 #include <d3dcompiler.h>
 #include <vector>
 #include "capture/wgc/windows_graphics_capture.h"
-#include "log_helper.h"
+#include "shared/log_helper.h"
 #include "FrameSender.h"
 #include "D3D11Context.h"
 #include "AbstractCapture.h"

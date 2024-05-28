@@ -10,6 +10,7 @@
 #include "functional"
 #include "DXGIMapping.h"
 #include "D3D11Context.h"
+#include "shared/network.h"
 
 using moodycamel::BlockingConcurrentQueue;
 
@@ -55,22 +56,23 @@ class FrameSender {
     int running{};
     static constexpr bool enableDebugCheck = false;
     size_t globalQueueSize{};
+    std::shared_ptr<TheServer> socket;
 
     void sendOp();
 
     void compressOp();
 
+    FrameSender(const std::initializer_list<DXGIMapping> &slot, std::shared_ptr<TheServer> socket);
 
 public:
+
     void waitRequireSlot(const SlotSupplier &supplier);
 
     void stop();
 
     void start();
 
-    FrameSender(const std::initializer_list<DXGIMapping> &slot);
-
-    explicit FrameSender(const D3D11Context &ctx, SIZE2D frameSize);
+    explicit FrameSender(const D3D11Context &ctx, SIZE2D frameSize, std::shared_ptr<TheServer> socket);
 
     explicit FrameSender() = default;
 

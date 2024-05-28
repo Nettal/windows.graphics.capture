@@ -7,7 +7,7 @@
 
 
 #include <d3d11.h>
-#include "log_helper.h"
+#include "shared/log_helper.h"
 
 class D3D11Context {
     static constexpr bool enableD3DDebug = false;

@@ -3,8 +3,10 @@
 //
 
 #include <iostream>
+#include <utility>
 #include "FrameSender.h"
 #include "lz4.h"
+#include "shared/shared.h"
 
 void FrameSender::waitRequireSlot(const FrameSender::SlotSupplier &supplier) {
     DXGIMapping available{};
@@ -15,11 +17,13 @@ void FrameSender::waitRequireSlot(const FrameSender::SlotSupplier &supplier) {
     checkQueueSize();
 }
 
-FrameSender::FrameSender(const std::initializer_list<DXGIMapping> &slot) : compressWaiting{slot.size()},
-                                                                           compressFinished{slot.size()},
-                                                                           sendWaiting(slot.size()),
-                                                                           sendFinished(slot.size()),
-                                                                           globalQueueSize(slot.size()) {
+FrameSender::FrameSender(const std::initializer_list<DXGIMapping> &slot, std::shared_ptr<TheServer> socket)
+        : compressWaiting{slot.size()},
+          compressFinished{slot.size()},
+          sendWaiting(slot.size()),
+          sendFinished(slot.size()),
+          globalQueueSize(slot.size()),
+          socket(std::move(socket)) {
     compressFinished.enqueue_bulk(slot.begin(), slot.size());
     std::vector<FrameBuffer> buffers{slot.size()};
     sendFinished.enqueue_bulk(buffers.begin(), buffers.size());
@@ -61,6 +65,9 @@ void FrameSender::sendOp() {
 //    std::this_thread::sleep_for(std::chrono::seconds(1));
     if (enableDebugCheck)
         std::cerr << "sendOp, size: " << bufferHolder.usedSize << "\n";
+    IMAGE_TYPE image{bufferHolder.extra.w, bufferHolder.extra.h, bufferHolder.extra.pitch, bufferHolder.usedSize};
+    socket->send(&image, sizeof(IMAGE_TYPE));
+    socket->send(bufferHolder.buffer, bufferHolder.usedSize);
     sendFinished.enqueue(bufferHolder);
     checkQueueSize();
 }
@@ -81,7 +88,7 @@ void FrameSender::start() {
     }};
 }
 
-FrameSender::FrameSender(const D3D11Context& ctx, SIZE2D frameSize) : FrameSender(
+FrameSender::FrameSender(const D3D11Context &ctx, SIZE2D frameSize, std::shared_ptr<TheServer> socket) : FrameSender(
         {DXGIMapping{ctx.d3d11Device, frameSize, ctx.deviceCtx},
-         DXGIMapping{ctx.d3d11Device, frameSize, ctx.deviceCtx}}) {
+         DXGIMapping{ctx.d3d11Device, frameSize, ctx.deviceCtx}}, std::move(socket)) {
 }

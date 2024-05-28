@@ -18,8 +18,8 @@ add_executable(wgc
         main.h
         capture/WindowsGraphicsCapture.cpp
         capture/WindowsGraphicsCapture.h
-        log_helper.c
-        stb_image_write.c
+        shared/log_helper.c
+        shared/stb_image_write.c
         capture/FrameSender.cpp
         capture/FrameSender.h
         capture/DXGIMapping.cpp
@@ -30,17 +30,20 @@ add_executable(wgc
         capture/wgc/WGCCapture.cpp
         capture/wgc/WGCCapture.h
         capture/CaptureShared.h
+        shared/network.cpp
 )
 
 add_executable(display
         display/Display.cpp
         display/Display.h
-        log_helper.c
-        log_helper.h
+        shared/log_helper.c
+        shared/log_helper.h
         display/glad.c
         display/glad.h
+        shared/network.cpp
+        shared/shared.h
 )
 
 target_link_libraries(display glfw3)
 
-target_link_libraries(wgc D3D11 d3dcompiler lz4)
+target_link_libraries(wgc D3D11 d3dcompiler lz4 ws2_32)

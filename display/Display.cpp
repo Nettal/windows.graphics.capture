@@ -5,7 +5,7 @@
 #include "glad.h"
 #include "Display.h"
 #include <GLFW/glfw3.h>
-#include "log_helper.h"
+#include "shared/log_helper.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>

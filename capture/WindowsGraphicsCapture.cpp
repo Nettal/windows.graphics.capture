@@ -5,7 +5,7 @@
 #include <iostream>
 #include <utility>
 #include "WindowsGraphicsCapture.h"
-#include "stb_image_write.h"
+#include "shared/stb_image_write.h"
 
 static const auto hlsl_shader =
         "/* vertex attributes go here to input to the vertex shader */\n"
