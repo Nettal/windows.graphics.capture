@@ -15,10 +15,10 @@ class TheServer {
 public:
     explicit TheServer(int port);
 
-    int sAccept() const;
+    [[nodiscard]] int64_t sAccept() const;
 
 private:
-    int sock;
+    int64_t sock;
     struct sockaddr_in addr{};
 };
 
@@ -26,16 +26,16 @@ class TheClient {
 public:
     TheClient(const char *address, int port);
 
-    int cConnect();
+    int64_t cConnect();
 
-    int cConnectRaw(bool *success);
+    int64_t cConnectRaw(bool *success);
 
 private:
-    int sock;
+    int64_t sock;
     struct sockaddr_in addr{};
 };
 
-void mw_read_all(int handle, void *basePtr_, int64_t len);
+void mw_read_all(int64_t handle, void *basePtr_, int64_t len);
 
 bool mw_send(int64_t handle, const void *basePtr, int64_t len);
 

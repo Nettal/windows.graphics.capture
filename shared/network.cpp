@@ -28,7 +28,7 @@ TheServer::TheServer(int port) {
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    int r = ::bind(sock, (const struct sockaddr *) &addr, sizeof(addr));
+    int64_t r = ::bind(sock, (const struct sockaddr *) &addr, sizeof(addr));
     if (r != 0) {
         mw_fatal("unable bind to %d\n", port);
     }
@@ -37,14 +37,14 @@ TheServer::TheServer(int port) {
     }
 }
 
-int TheServer::sAccept() const {
+int64_t TheServer::sAccept() const {
     struct sockaddr_in remoteAddr{};
     int nAddrlen = sizeof(remoteAddr);
-    int r;
+    int64_t r;
 #ifdef __linux
     r = ::accept(sock, (struct sockaddr *) &remoteAddr, (socklen_t *) &nAddrlen);
 #else
-    r = (int) ::accept(sock, (struct sockaddr *) &remoteAddr, &nAddrlen);
+    r = (int64_t) ::accept(sock, (struct sockaddr *) &remoteAddr, &nAddrlen);
 #endif
     if (r == -1) {
         mw_fatal("unable to accept");
@@ -54,22 +54,22 @@ int TheServer::sAccept() const {
 
 TheClient::TheClient(const char *address, int port) {
     preInit();
-    sock = (int) ::socket(AF_INET, SOCK_STREAM, 0);
+    sock = (int64_t) ::socket(AF_INET, SOCK_STREAM, 0);
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = inet_addr(address);
 }
 
-int TheClient::cConnect() {
-    int r = ::connect(sock, (const sockaddr *) (&addr), sizeof(addr));
+int64_t TheClient::cConnect() {
+    int64_t r = ::connect(sock, (const sockaddr *) (&addr), sizeof(addr));
     if (r != 0) {
         mw_fatal("unable to connect");
     }
     return sock;
 }
 
-int TheClient::cConnectRaw(bool *success) {
-    int r = ::connect(sock, (const sockaddr *) (&addr), sizeof(addr));
+int64_t TheClient::cConnectRaw(bool *success) {
+    int64_t r = ::connect(sock, (const sockaddr *) (&addr), sizeof(addr));
     if (r != 0) {
         *success = false;
         return -1;
@@ -78,13 +78,13 @@ int TheClient::cConnectRaw(bool *success) {
     return sock;
 }
 
-int64_t mw_read(int handle, void *dest, int64_t len) {
+int64_t mw_read(int64_t handle, void *dest, int64_t len) {
     assert(len != 0);
     return ::recv(handle, (char *) dest, (int) len, 0);
 }
 
 
-void mw_read_all(int handle, void *basePtr_, int64_t len) {
+void mw_read_all(int64_t handle, void *basePtr_, int64_t len) {
     auto *basePtr = (int8_t *) basePtr_;
     assert(len != 0);
     int64_t result = 1;
@@ -96,7 +96,8 @@ void mw_read_all(int handle, void *basePtr_, int64_t len) {
         basePtr += result;
         baseSize -= result;
         if (result == -1) {
-            mw_fatal("Error while receiving , received %lld expect %zu", sum, len);
+            int err = WSAGetLastError();
+            mw_fatal("Error while receiving , received %lld expect %zu error %d", sum, len, err);
         }
         if (sum == len)
             return;
