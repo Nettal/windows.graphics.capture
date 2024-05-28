@@ -10,7 +10,7 @@ extern "C"{
 
 #include <d3d11.h>
 #include "stdint.h"
-#include "CaptureShared.h"
+#include "capture/CaptureShared.h"
 
 typedef void (*WgcOnFrameArrive)(OnFrameArriveParameter *onFrameArriveParameter, OnFrameArriveRet *ret);
 

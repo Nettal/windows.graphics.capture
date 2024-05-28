@@ -8,7 +8,7 @@
 
 #include <dxgi.h>
 #include <d3d11.h>
-#include "windows_graphics_capture.h"
+#include "capture/wgc/windows_graphics_capture.h"
 
 class DXGIMapping {
     IDXGISurface *dxgiSurface{};

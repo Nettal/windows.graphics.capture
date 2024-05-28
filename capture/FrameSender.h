@@ -6,7 +6,7 @@
 #define WGC_FRAMESENDER_H
 
 #include "./concurrent/blockingconcurrentqueue.h"
-#include "windows_graphics_capture.h"
+#include "capture/wgc/windows_graphics_capture.h"
 #include "functional"
 #include "DXGIMapping.h"
 #include "D3D11Context.h"

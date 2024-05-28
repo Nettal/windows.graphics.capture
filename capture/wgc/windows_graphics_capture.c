@@ -8,8 +8,8 @@
 #include <d3d11.h>
 #include "winstring.h"
 #include "windows.graphics.capture.interop.h"
-#include "wgc/include/windows.graphics.capture.h"
-#include "wgc/include/windows.graphics.directx.direct3d11.interop.h"
+#include "capture/wgc/include/windows.graphics.capture.h"
+#include "capture/wgc/include/windows.graphics.directx.direct3d11.interop.h"
 #include "IIDUtils.h"
 #include "CallbackImpl.h"
 #include "IDirect3DDxgiInterfaceAccess.h"

@@ -3,8 +3,8 @@
 //
 
 #include "main.h"
-#include "wgc/WindowsGraphicsCapture.h"
-#include "wgc/WGCCapture.h"
+#include "capture/WindowsGraphicsCapture.h"
+#include "capture/wgc/WGCCapture.h"
 
 int main() {
     auto ctx = D3D11Context();

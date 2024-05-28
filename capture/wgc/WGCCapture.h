@@ -6,8 +6,8 @@
 #define WGC_WGCCAPTURE_H
 
 
-#include "AbstractCapture.h"
-#include "D3D11Context.h"
+#include "capture/AbstractCapture.h"
+#include "capture/D3D11Context.h"
 
 class WGCCapture : public AbstractCapture {
     void *wgc_c_internal{};

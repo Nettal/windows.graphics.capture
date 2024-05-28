@@ -1,35 +1,35 @@
 cmake_minimum_required(VERSION 3.28)
-project(wgc)
+project(capture)
 
 set(CMAKE_CXX_STANDARD 20)
 
 include_directories(.)
 
 add_executable(wgc
-        wgc/windows_graphics_capture.c
+        capture/wgc/windows_graphics_capture.c
         main.h
-        wgc/CallbackImpl.c
-        wgc/CallbackImpl.h
-        wgc/IIDUtils.c
-        wgc/IIDUtils.h
-        wgc/include/windows.graphics.directx.direct3d11.interop.h
-        wgc/IDirect3DDxgiInterfaceAccess.h
+        capture/wgc/CallbackImpl.c
+        capture/wgc/CallbackImpl.h
+        capture/wgc/IIDUtils.c
+        capture/wgc/IIDUtils.h
+        capture/wgc/include/windows.graphics.directx.direct3d11.interop.h
+        capture/wgc/IDirect3DDxgiInterfaceAccess.h
         main.cpp
         main.h
-        wgc/WindowsGraphicsCapture.cpp
-        wgc/WindowsGraphicsCapture.h
+        capture/WindowsGraphicsCapture.cpp
+        capture/WindowsGraphicsCapture.h
         log_helper.c
         stb_image_write.c
-        wgc/FrameSender.cpp
-        wgc/FrameSender.h
-        wgc/DXGIMapping.cpp
-        wgc/DXGIMapping.h
-        wgc/D3D11Context.cpp
-        wgc/D3D11Context.h
-        AbstractCapture.h
-        wgc/WGCCapture.cpp
-        wgc/WGCCapture.h
-        CaptureShared.h
+        capture/FrameSender.cpp
+        capture/FrameSender.h
+        capture/DXGIMapping.cpp
+        capture/DXGIMapping.h
+        capture/D3D11Context.cpp
+        capture/D3D11Context.h
+        capture/AbstractCapture.h
+        capture/wgc/WGCCapture.cpp
+        capture/wgc/WGCCapture.h
+        capture/CaptureShared.h
 )
 
 add_executable(display
