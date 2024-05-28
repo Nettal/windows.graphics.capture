@@ -14,10 +14,11 @@
 #include "FrameSender.h"
 #include "D3D11Context.h"
 #include "AbstractCapture.h"
+#include "AbstractFrameProcessor.h"
 
-class FrameProcessor {
+class FrameProcessor : public AbstractFrameProcessor {
     // d3d
-    D3D11Context d3dContext{};
+    std::shared_ptr<D3D11Context> d3dContext{};
     SIZE2D currentTextureSize{};
     enum DXGI_FORMAT currentSamplerFormat{};
     ID3DBlob *vertexShaderBlob{};
@@ -53,7 +54,6 @@ class FrameProcessor {
     int preTextureIndex{}; // a is 0, b is 1
     int refreshSignal{};
     std::shared_ptr<FrameSender> sender{};
-    std::shared_ptr<AbstractCapture> capture;
 
     void doDiffer(ID3D11ShaderResourceView *newView, ID3D11ShaderResourceView *oldView);
 
@@ -64,17 +64,15 @@ class FrameProcessor {
     void createTextures(SIZE2D newSize, enum DXGI_FORMAT format);
 
 public:
-    explicit FrameProcessor(D3D11Context d3dContext,
-                            std::shared_ptr<FrameSender> sender,
-                            std::shared_ptr<AbstractCapture> capture);
-
-    void doCapture();
-
-    void stopCapture();
+    explicit FrameProcessor(const std::shared_ptr<D3D11Context> &d3dContext, std::shared_ptr<FrameSender> sender);
 
     void refresh();
 
-    void receiveWGCFrame(OnFrameArriveParameter *para);
+    void preCapture(AbstractCapture *capture) final;
+
+    void endCapture(AbstractCapture *capture) final;
+
+    void receiveFrame(OnFrameArriveParameter *para) final;
 };
 
 

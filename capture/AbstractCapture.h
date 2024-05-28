@@ -13,7 +13,7 @@ class AbstractCapture {
 public:
     using OnFrameArrive = std::function<void(OnFrameArriveParameter *onFrameArriveParameter)>;
 
-    virtual void start(OnFrameArrive onFrameArrive) = 0;
+    virtual void start() = 0;
 
     virtual void stop() = 0;
 

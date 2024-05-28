@@ -29,6 +29,7 @@ add_executable(wgc
         capture/wgc/WGCCapture.h
         capture/CaptureShared.h
         shared/network.cpp
+        capture/AbstractFrameProcessor.h
 )
 
 add_executable(display

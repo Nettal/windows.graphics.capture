@@ -17,18 +17,6 @@ void FrameSender::waitRequireSlot(const FrameSender::SlotSupplier &supplier) {
     checkQueueSize();
 }
 
-FrameSender::FrameSender(const std::initializer_list<DXGIMapping> &slot, int64_t socket)
-        : compressWaiting{slot.size()},
-          compressFinished{slot.size()},
-          sendWaiting(slot.size()),
-          sendFinished(slot.size()),
-          globalQueueSize(slot.size()),
-          socket(socket) {
-    compressFinished.enqueue_bulk(slot.begin(), slot.size());
-    std::vector<FrameBuffer> buffers{slot.size()};
-    sendFinished.enqueue_bulk(buffers.begin(), buffers.size());
-}
-
 void FrameSender::checkQueueSize() {
     if (!enableDebugCheck)
         return;
@@ -72,11 +60,21 @@ void FrameSender::sendOp() {
     checkQueueSize();
 }
 
-void FrameSender::stop() {
-    running = 0;
+FrameSender::FrameSender(std::shared_ptr<D3D11Context> ctx, int64_t socket, int numBuffer)
+        : ctx(std::move(ctx)), socket(socket), numBuffer(numBuffer),
+          compressWaiting{static_cast<size_t>(numBuffer)},
+          compressFinished{static_cast<size_t>(numBuffer)},
+          sendWaiting(static_cast<size_t>(numBuffer)),
+          sendFinished(static_cast<size_t>(numBuffer)),
+          globalQueueSize(static_cast<size_t>(numBuffer)) {
+    std::vector<FrameBuffer> buffers{static_cast<size_t>(numBuffer)};
+    sendFinished.enqueue_bulk(buffers.begin(), buffers.size());
 }
 
-void FrameSender::start() {
+void FrameSender::preCapture(AbstractCapture *capture) {
+    for (int i = 0; i < numBuffer; ++i) {
+        compressFinished.enqueue(DXGIMapping{ctx->d3d11Device, capture->currentFrameSize(), ctx->deviceCtx});
+    }
     running = 1;
     compressThread = std::thread{[this]() {
         while (running)
@@ -88,7 +86,6 @@ void FrameSender::start() {
     }};
 }
 
-FrameSender::FrameSender(const D3D11Context &ctx, SIZE2D frameSize, int64_t socket) : FrameSender(
-        {DXGIMapping{ctx.d3d11Device, frameSize, ctx.deviceCtx},
-         DXGIMapping{ctx.d3d11Device, frameSize, ctx.deviceCtx}}, std::move(socket)) {
+void FrameSender::endCapture(AbstractCapture *capture) {
+    running = 0;
 }

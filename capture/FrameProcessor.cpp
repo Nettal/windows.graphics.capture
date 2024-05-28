@@ -42,13 +42,10 @@ static const auto hlsl_shader =
         "}";
 #define CHECK_RESULT(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d\n",__FILE__, __LINE__);}} while(0)
 
-FrameProcessor::FrameProcessor(D3D11Context d3dContext,
-                               std::shared_ptr<FrameSender> sender,
-                               std::shared_ptr<AbstractCapture> capture) :
-        d3dContext(d3dContext), capture(std::move(capture)), sender(std::move(sender)) {
+FrameProcessor::FrameProcessor(const std::shared_ptr<D3D11Context> &d3dContext, std::shared_ptr<FrameSender> sender) :
+        d3dContext(d3dContext), sender(std::move(sender)) {
     vertexShaderBlob = compileShader(hlsl_shader, "vs_main", "vs_5_0");
     fragmentShaderBlob = compileShader(hlsl_shader, "ps_main", "ps_5_0");
-    createTextures(this->capture->currentFrameSize(), DXGI_FORMAT_B8G8R8A8_UNORM);
     D3D11_BUFFER_DESC vertexInputDescriptor;
     vertexInputDescriptor.ByteWidth = deferredVertexInput.size() * sizeof(Vertex);
     vertexInputDescriptor.Usage = D3D11_USAGE_DEFAULT;
@@ -60,34 +57,34 @@ FrameProcessor::FrameProcessor(D3D11Context d3dContext,
     vertexInputData.pSysMem = deferredVertexInput.data();
     vertexInputData.SysMemPitch = 0;
     vertexInputData.SysMemSlicePitch = 0;
-    auto hr = d3dContext.d3d11Device->CreateBuffer(&vertexInputDescriptor, &vertexInputData, &deferredVertexBuffer);
+    auto hr = d3dContext->d3d11Device->CreateBuffer(&vertexInputDescriptor, &vertexInputData, &deferredVertexBuffer);
     CHECK_RESULT(hr);
     D3D11_INPUT_ELEMENT_DESC vertexInputAttributeDescription[] =
             {
                     {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,  D3D11_INPUT_PER_VERTEX_DATA, 0},
                     {"TEXCOORD", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0}
             };
-    hr = d3dContext.d3d11Device->CreateInputLayout(vertexInputAttributeDescription,
-                                                   sizeof(vertexInputAttributeDescription) /
-                                                   sizeof(D3D11_INPUT_ELEMENT_DESC),
-                                                   vertexShaderBlob->GetBufferPointer(),
-                                                   vertexShaderBlob->GetBufferSize(), &vertexInputLayout);
+    hr = d3dContext->d3d11Device->CreateInputLayout(vertexInputAttributeDescription,
+                                                    sizeof(vertexInputAttributeDescription) /
+                                                    sizeof(D3D11_INPUT_ELEMENT_DESC),
+                                                    vertexShaderBlob->GetBufferPointer(),
+                                                    vertexShaderBlob->GetBufferSize(), &vertexInputLayout);
     CHECK_RESULT(hr);
-    hr = d3dContext.d3d11Device->CreateVertexShader(vertexShaderBlob->GetBufferPointer(),
-                                                    vertexShaderBlob->GetBufferSize(), nullptr, &vertexShader);
+    hr = d3dContext->d3d11Device->CreateVertexShader(vertexShaderBlob->GetBufferPointer(),
+                                                     vertexShaderBlob->GetBufferSize(), nullptr, &vertexShader);
     CHECK_RESULT(hr);
 
-    hr = d3dContext.d3d11Device->CreatePixelShader(fragmentShaderBlob->GetBufferPointer(),
-                                                   fragmentShaderBlob->GetBufferSize(), nullptr, &fragmentShader);
+    hr = d3dContext->d3d11Device->CreatePixelShader(fragmentShaderBlob->GetBufferPointer(),
+                                                    fragmentShaderBlob->GetBufferSize(), nullptr, &fragmentShader);
     CHECK_RESULT(hr);
     D3D11_SAMPLER_DESC samplerDesc = {};
     samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR; // 设置采样器过滤器
     samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP; // 设置纹理寻址模式
     samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
     samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-    d3dContext.d3d11Device->CreateSamplerState(&samplerDesc, &frameSamplerState);
+    d3dContext->d3d11Device->CreateSamplerState(&samplerDesc, &frameSamplerState);
     CHECK_RESULT(hr);
-    d3dContext.printDX11infos();
+    d3dContext->printDX11infos();
 }
 
 void FrameProcessor::fitWGCFrame(SIZE2D newSize, enum DXGI_FORMAT format) {
@@ -115,63 +112,63 @@ void FrameProcessor::createTextures(SIZE2D newSize, enum DXGI_FORMAT format) {
     frame_desc.ArraySize = 1;
     frame_desc.SampleDesc.Count = 1;
     frame_desc.SampleDesc.Quality = 0;
-    auto hr = d3dContext.d3d11Device->CreateTexture2D(&frame_desc, nullptr, &renderTargetTexture);
+    auto hr = d3dContext->d3d11Device->CreateTexture2D(&frame_desc, nullptr, &renderTargetTexture);
     CHECK_RESULT(hr);
-    hr = d3dContext.d3d11Device->CreateRenderTargetView(renderTargetTexture, nullptr, &renderTargetImageView);
+    hr = d3dContext->d3d11Device->CreateRenderTargetView(renderTargetTexture, nullptr, &renderTargetImageView);
     CHECK_RESULT(hr);
     currentSamplerFormat = format;
     frame_desc.Format = format;// samplers use specified format
     frame_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-    hr = d3dContext.d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerATexture);
+    hr = d3dContext->d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerATexture);
     CHECK_RESULT(hr);
-    hr = d3dContext.d3d11Device->CreateShaderResourceView(frameSamplerATexture, nullptr, &samplerImageAView);
-    CHECK_RESULT(hr);
-
-    frame_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-    hr = d3dContext.d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerBTexture);
-    CHECK_RESULT(hr);
-    hr = d3dContext.d3d11Device->CreateShaderResourceView(frameSamplerBTexture, nullptr, &samplerImageBView);
+    hr = d3dContext->d3d11Device->CreateShaderResourceView(frameSamplerATexture, nullptr, &samplerImageAView);
     CHECK_RESULT(hr);
 
     frame_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-    hr = d3dContext.d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerZeroTexture);
+    hr = d3dContext->d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerBTexture);
     CHECK_RESULT(hr);
-    hr = d3dContext.d3d11Device->CreateShaderResourceView(frameSamplerZeroTexture, nullptr, &samplerImageZeroView);
+    hr = d3dContext->d3d11Device->CreateShaderResourceView(frameSamplerBTexture, nullptr, &samplerImageBView);
+    CHECK_RESULT(hr);
+
+    frame_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+    hr = d3dContext->d3d11Device->CreateTexture2D(&frame_desc, nullptr, &frameSamplerZeroTexture);
+    CHECK_RESULT(hr);
+    hr = d3dContext->d3d11Device->CreateShaderResourceView(frameSamplerZeroTexture, nullptr, &samplerImageZeroView);
     CHECK_RESULT(hr);
 }
 
 void FrameProcessor::doDiffer(ID3D11ShaderResourceView *newView, ID3D11ShaderResourceView *oldView) {
     float clearColor[4] = {0.0f, 0.0f, 0.0f, 0.0f}; // 清空为黑色
-    d3dContext.deviceCtx->ClearRenderTargetView(renderTargetImageView, clearColor);
+    d3dContext->deviceCtx->ClearRenderTargetView(renderTargetImageView, clearColor);
 
     D3D11_VIEWPORT viewport = {0.0f, 0.0f,
                                (FLOAT) (currentTextureSize.width), (FLOAT) (currentTextureSize.height),
                                0.0f, 1.0f};
-    d3dContext.deviceCtx->RSSetViewports(1, &viewport);
+    d3dContext->deviceCtx->RSSetViewports(1, &viewport);
     // 设置渲染目标
-    d3dContext.deviceCtx->OMSetRenderTargets(1, &renderTargetImageView, nullptr);
+    d3dContext->deviceCtx->OMSetRenderTargets(1, &renderTargetImageView, nullptr);
 
     // 设置顶点缓冲区
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
-    d3dContext.deviceCtx->IASetVertexBuffers(0, 1, &deferredVertexBuffer, &stride, &offset);
-    d3dContext.deviceCtx->IASetInputLayout(vertexInputLayout);
-    d3dContext.deviceCtx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    d3dContext.deviceCtx->VSSetShader(vertexShader, nullptr, 0);
-    d3dContext.deviceCtx->PSSetShader(fragmentShader, nullptr, 0);
+    d3dContext->deviceCtx->IASetVertexBuffers(0, 1, &deferredVertexBuffer, &stride, &offset);
+    d3dContext->deviceCtx->IASetInputLayout(vertexInputLayout);
+    d3dContext->deviceCtx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    d3dContext->deviceCtx->VSSetShader(vertexShader, nullptr, 0);
+    d3dContext->deviceCtx->PSSetShader(fragmentShader, nullptr, 0);
 
     // 设置纹理资源
     auto imageView = {newView, oldView};
-    d3dContext.deviceCtx->PSSetShaderResources(0, imageView.size(), imageView.begin());
+    d3dContext->deviceCtx->PSSetShaderResources(0, imageView.size(), imageView.begin());
     // 将采样器状态绑定到槽位0
     auto samplers = {frameSamplerState, frameSamplerState};
-    d3dContext.deviceCtx->PSSetSamplers(0, samplers.size(), samplers.begin());
+    d3dContext->deviceCtx->PSSetSamplers(0, samplers.size(), samplers.begin());
     // 执行格式转换
-    d3dContext.deviceCtx->Draw(6, 0);
-    d3dContext.printDX11infos();
+    d3dContext->deviceCtx->Draw(6, 0);
+    d3dContext->printDX11infos();
 }
 
-void FrameProcessor::receiveWGCFrame(OnFrameArriveParameter *para) {
+void FrameProcessor::receiveFrame(OnFrameArriveParameter *para) {
     frameCount++;
     if (((para->systemRelativeTime - frameTime) / 10'000'000.0) >= 1) {
         mw_info("fps:%f", frameCount / ((para->systemRelativeTime - frameTime) / 10'000'000.0));
@@ -189,12 +186,12 @@ void FrameProcessor::receiveWGCFrame(OnFrameArriveParameter *para) {
     ID3D11ShaderResourceView *oldView;
     if (preTextureIndex == 1) {
         // write to a
-        d3dContext.deviceCtx->CopyResource(frameSamplerATexture, para->d3d11Texture2D);
+        d3dContext->deviceCtx->CopyResource(frameSamplerATexture, para->d3d11Texture2D);
         preTextureIndex = 0;
         newView = samplerImageAView;
         oldView = samplerImageBView;
     } else {
-        d3dContext.deviceCtx->CopyResource(frameSamplerBTexture, para->d3d11Texture2D);
+        d3dContext->deviceCtx->CopyResource(frameSamplerBTexture, para->d3d11Texture2D);
         preTextureIndex = 1;
         newView = samplerImageBView;
         oldView = samplerImageAView;
@@ -208,18 +205,6 @@ void FrameProcessor::receiveWGCFrame(OnFrameArriveParameter *para) {
         available.copy(renderTargetTexture);
         return available;
     });
-}
-
-void FrameProcessor::doCapture() {
-    sender->start();
-    capture->start([this](OnFrameArriveParameter *para) {
-        receiveWGCFrame(para);
-    });
-}
-
-void FrameProcessor::stopCapture() {
-    sender->stop();
-    capture->stop();
 }
 
 ID3DBlob *FrameProcessor::compileShader(const std::string &shader, const std::string &entrance,
@@ -239,4 +224,28 @@ ID3DBlob *FrameProcessor::compileShader(const std::string &shader, const std::st
 
 void FrameProcessor::refresh() {
     refreshSignal = 1;
+}
+
+void FrameProcessor::preCapture(AbstractCapture *capture) {
+    createTextures(capture->currentFrameSize(), DXGI_FORMAT_B8G8R8A8_UNORM);
+    sender->preCapture(capture);
+}
+
+void FrameProcessor::endCapture(AbstractCapture *capture) {
+    vertexShaderBlob->Release();
+    fragmentShaderBlob->Release();
+    deferredVertexBuffer->Release();
+    vertexInputLayout->Release();
+    vertexShader->Release();
+    fragmentShader->Release();
+    samplerImageAView->Release();
+    samplerImageBView->Release();
+    samplerImageZeroView->Release();
+    renderTargetImageView->Release();
+    renderTargetTexture->Release();
+    frameSamplerATexture->Release();
+    frameSamplerBTexture->Release();
+    frameSamplerZeroTexture->Release();
+    frameSamplerState->Release();
+    sender->endCapture(capture);
 }

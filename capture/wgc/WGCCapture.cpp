@@ -3,22 +3,20 @@
 //
 
 #include "WGCCapture.h"
+
+#include <utility>
 #include "windows_graphics_capture.h"
 
-void WGCCapture::start(AbstractCapture::OnFrameArrive onFrameArrive) {
+void WGCCapture::start() {
+    frameProcessor->preCapture(this);
     running = true;
-    struct PARA_ {
-        WGCCapture *this_;
-        OnFrameArrive onFrameArrive;
-    };
-    PARA_ para{this, onFrameArrive};
     wgc_do_capture_on_this_thread(wgc_c_internal,
                                   [](OnFrameArriveParameter *para, OnFrameArriveRet *ret) {
-                                      auto pPara = reinterpret_cast<PARA_ *>(para->userPtr);
-                                      ret->running = pPara->this_->running;
-                                      pPara->this_->frameSize = para->frameSize;
-                                      pPara->onFrameArrive(para);
-                                  }, &para);
+                                      auto this_ = reinterpret_cast<WGCCapture *>(para->userPtr);
+                                      ret->running = this_->running;
+                                      this_->frameSize = para->frameSize;
+                                      this_->frameProcessor->receiveFrame(para);
+                                  }, this);
 }
 
 void WGCCapture::stop() {
@@ -29,6 +27,7 @@ SIZE2D WGCCapture::currentFrameSize() {
     return frameSize;
 }
 
-WGCCapture::WGCCapture(const D3D11Context &ctx, HMONITOR monitorToCapture, int bufferNum) {
-    wgc_c_internal = wgc_initial_everything(monitorToCapture, &frameSize, ctx.d3d11Device, bufferNum);
+WGCCapture::WGCCapture(const std::shared_ptr<D3D11Context>& ctx, std::shared_ptr<AbstractFrameProcessor> frameProcessor,
+                       HMONITOR monitorToCapture, int bufferNum) : frameProcessor(std::move(frameProcessor)) {
+    wgc_c_internal = wgc_initial_everything(monitorToCapture, &frameSize, ctx->d3d11Device, bufferNum);
 }
