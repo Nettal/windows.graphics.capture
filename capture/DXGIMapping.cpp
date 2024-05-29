@@ -29,9 +29,6 @@ void DXGIMapping::createTexture(uint32_t width, uint32_t height, enum DXGI_FORMA
     CHECK_RESULT(hr);
     hr = cpuAccessingTexture->QueryInterface(__uuidof(IDXGISurface), (void **) &dxgiSurface);
     CHECK_RESULT(hr);
-    hr = dxgiSurface->Map(&mappedRect, DXGI_MAP_READ);
-    CHECK_RESULT(hr);
-    assert(mappedRect.Pitch == width * 4);
     assert(format == DXGI_FORMAT_B8G8R8A8_UNORM);
 }
 
@@ -51,4 +48,7 @@ void DXGIMapping::copy(ID3D11Texture2D *renderTarget) {
         createTexture(frameDescTarget.Width, frameDescTarget.Height, frameDescTarget.Format);
     }
     deviceCtx->CopyResource(cpuAccessingTexture, renderTarget);
+    auto hr = dxgiSurface->Map(&mappedRect, DXGI_MAP_READ);
+    CHECK_RESULT(hr);
+    assert(mappedRect.Pitch == frameDescTarget.Width * 4);
 }
