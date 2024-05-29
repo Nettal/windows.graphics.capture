@@ -320,8 +320,8 @@ void Display::run(int _width, int _height, int _texW, int _texH) {
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texW, texH, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
 
     MeshData meshData = {sizeof(indices), indices, sizeof(verts), verts};
@@ -330,7 +330,6 @@ void Display::run(int _width, int _height, int _texW, int _texH) {
     Mesh mesh(meshData, vao);
 
     glfwGetFramebufferSize(window, &width, &height);
-    glViewport(0, 0, width, height);
     printf("%s %s %s\n", glGetString(GL_VERSION), glGetString(GL_RENDERER), glGetString(GL_VENDOR));
 
 #if ENABLE_PBO
@@ -344,7 +343,7 @@ void Display::run(int _width, int _height, int _texW, int _texH) {
 #endif
     pixelPtrAvailable(this);
 
-    renderTarget = new RenderTarget(width, height);
+    renderTarget = new RenderTarget(texW, texH);
 
     GLint diffSrcLocation = glGetUniformLocation(diffShader.ID, "src");
     GLint diffBack0Location = glGetUniformLocation(diffShader.ID, "back0");
@@ -362,6 +361,7 @@ void Display::run(int _width, int _height, int _texW, int _texH) {
             diffShader.use();
 //            glClearColor(1.0f, 1.0f, 0.f, 1.0f);
 //            glClear(GL_COLOR_BUFFER_BIT);
+            glViewport(0, 0, texW, texH);
 
             glUniform1i(diffSrcLocation, (int) tex);
             glActiveTexture(GL_TEXTURE0 + tex);
@@ -386,6 +386,7 @@ void Display::run(int _width, int _height, int _texW, int _texH) {
             displayShader.use();
 //            glClearColor(0.f, 0.f, 1.f, 1.0f);
 //            glClear(GL_COLOR_BUFFER_BIT);
+            glViewport(0, 0, width, height);
 
             int src0 = (int) renderTarget->getTextureId(0);
             glUniform1i(dispSrc0Location, src0);
@@ -466,9 +467,6 @@ void Display::setSize(int _width, int _height) {
     this->width = _width;
     this->height = _height;
     glViewport(0, 0, width, height);
-    renderTarget->close();
-    delete renderTarget;
-    renderTarget = new RenderTarget(width, height);
 }
 
 #include <random>
@@ -493,6 +491,13 @@ uint8_t rand8() {
 static std::chrono::steady_clock::time_point start;
 static float frameCount = 0;
 
+#define ENABLE_DEBUG 0
+#if ENABLE_DEBUG
+
+#include "../shared/stb_image_write.h"
+
+#endif
+
 int main() {
     Display display{};
     int texW = 1024;
@@ -508,6 +513,11 @@ int main() {
             bool first = true;
             void *tmp = calloc(sizeof(uint32_t), type.w * type.h);
             void *tex = calloc(sizeof(uint32_t), type.w * type.h);
+#if ENABLE_DEBUG
+            uint32_t *pixel = (uint32_t *) calloc(sizeof(uint32_t), type.w * type.h);
+            int oCount = 0;
+#endif
+
             while (true) {
                 if (first) {
                     mw_read_all(sock, (char *) (tmp), type.size);
@@ -521,6 +531,29 @@ int main() {
                 if (r < 0) {
                     assert(0);
                 }
+
+#if ENABLE_DEBUG
+                auto count = type.w * type.h;
+                auto *src = (uint32_t *) tex;
+                uint32_t writePixel = 0;
+                for (int i = 0; i < count; ++i) {
+                    uint8_t rgba[4] = {};
+                    memcpy(&rgba, &src[i], sizeof(uint32_t));
+                    if (rgba[0] == 0 && rgba[1] == 0 && rgba[2] == 0 && rgba[3] == 0) {
+                        continue;
+                    }
+                    pixel[i] = src[i];
+                    writePixel++;
+                }
+                fprintf(stderr, "Write %d pixels\n", writePixel);
+                oCount++;
+                if (oCount % 10 == 0) {
+                    std::string name = ("out" + std::to_string(oCount) + ".bmp");
+                    fprintf(stderr, "Out %s\n", name.c_str());
+                    stbi_write_bmp(name.c_str(), type.w, type.h, 4, pixel);
+                }
+#endif
+
                 dpy->uploadTex(tex);
                 frameCount++;
                 std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();

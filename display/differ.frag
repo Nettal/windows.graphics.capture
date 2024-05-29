@@ -18,13 +18,21 @@ void main() {
     vec4 s = texture(src, uv);
     if (outIndex == 0){
         //do comp
-        outColor0 = mix(b1, s, s.a);
-
-        outColor1 = b1;
+        if (s.x==0&&s.y==0&&s.z==0&&s.w==0){
+            outColor0 = b1;
+            outColor1 = b1;
+        } else {
+            outColor0 = s;
+            outColor1 = s;
+        }
     } else {
         //do comp
-        outColor1 =  mix(b0, s, s.a);
-
-        outColor0 = b0;
+        if (s.x==0&&s.y==0&&s.z==0&&s.w==0){
+            outColor1 = b0;
+            outColor0 = b0;
+        } else {
+            outColor1 = s;
+            outColor0 = s;
+        }
     }
 }

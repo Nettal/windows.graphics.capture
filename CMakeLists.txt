@@ -43,6 +43,7 @@ add_executable(display
         shared/shared.h
         display/RenderTarget.cpp
         display/RenderTarget.h
+        shared/stb_image_write.c
 )
 
 target_link_libraries(display glfw3 ws2_32 lz4)
