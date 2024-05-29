@@ -16,23 +16,8 @@ void main() {
     vec4 b0 = texture(back0, nuv);
     vec4 b1 = texture(back1, nuv);
     vec4 s = texture(src, uv);
-    if (outIndex == 0){
-        //do comp
-        if (s.x==0&&s.y==0&&s.z==0&&s.w==0){
-            outColor0 = b1;
-            outColor1 = b1;
-        } else {
-            outColor0 = s;
-            outColor1 = s;
-        }
-    } else {
-        //do comp
-        if (s.x==0&&s.y==0&&s.z==0&&s.w==0){
-            outColor1 = b0;
-            outColor0 = b0;
-        } else {
-            outColor1 = s;
-            outColor0 = s;
-        }
-    }
+    bool no_differ = length(s) < 0.0001;// no differ, use back
+    vec4 differ_color = distance(s, vec4(1, 1, 1, 0)) < 0.0001 ? vec4(0) : s;// 1,1,1,0 means origin is transparent
+    vec4 dest = no_differ ? (outIndex == 0 ? b1 : b0) : differ_color;
+    outColor0 = outColor1 = dest;
 }

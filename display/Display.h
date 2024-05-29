@@ -7,6 +7,7 @@
 
 #include "RenderTarget.h"
 #include <GLFW/glfw3.h>
+#include <functional>
 
 typedef struct {
     int sizeOfIndices;
