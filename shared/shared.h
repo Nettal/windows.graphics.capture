@@ -8,6 +8,8 @@
 #include <stdint.h>
 
 typedef struct {
+    uint32_t x;
+    uint32_t y;
     uint32_t w;
     uint32_t h;
     int64_t size;

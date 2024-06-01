@@ -508,23 +508,6 @@ int main() {
     mw_read_all(sock, (char *) (&type), sizeof(IMAGE_TYPE));
     texW = type.w;
     texH = type.h;
-    bool first = true;
-    void *tmp = calloc(sizeof(uint32_t), type.w * type.h);
-    void *tex = calloc(sizeof(uint32_t), type.w * type.h);
-    while (true) {
-        if (first) {
-            mw_read_all(sock, (char *) (tmp), type.size);
-            first = false;
-        } else {
-            mw_read_all(sock, (char *) (&type), sizeof(IMAGE_TYPE));
-            mw_read_all(sock, (char *) (tmp), type.size);
-        }
-        int r = LZ4_decompress_safe((const char *) tmp, (char *) (tex), type.size,
-                                    type.w * type.h * sizeof(uint32_t));
-        if (r < 0) {
-            assert(0);
-        }
-    }
     display.setPixelPtrAvailable([sock, type](Display *dpy) {
         std::thread([dpy, sock, type] {
             bool first = true;

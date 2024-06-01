@@ -39,6 +39,8 @@ void DesktopDuplication::start() {
         if (first) {
             frameProcessor->preCapture(this);
             first = false;
+            usedNum++;
+            dirties[0] = {0, 0, static_cast<LONG>(texDesc.Width), static_cast<LONG>(texDesc.Height)};
         }
         uint32_t freeByteSize = (dirties.size() - usedNum) * sizeof(RECT);
         hr = outputDuplication->GetFrameDirtyRects(freeByteSize,

@@ -176,9 +176,18 @@ void FrameProcessor::receiveFrame(OnFrameArriveParameter *para) {
         frameCount = 0;
         frameTime = para->systemRelativeTime;
     }
+    RECT merged = *para->dirties;
+    for (int i = 1; i < para->dirtiesNum; ++i) {
+        RECT dirty_add = para->dirties[i];
+        merged.top = std::min(merged.top, dirty_add.top);
+        merged.bottom = std::max(merged.bottom, dirty_add.bottom);
+        merged.left = std::min(merged.left, dirty_add.left);
+        merged.right = std::max(merged.right, dirty_add.right);
+    }
     if (!differ) {
-        sender->waitRequireSlot([&para](DXGIMapping &available) -> DXGIMapping & {
+        sender->waitRequireSlot([&para, &merged](DXGIMapping &available) -> DXGIMapping & {
             available.copy(para->d3d11Texture2D);
+            available.dataRect = merged;
             return available;
         });
         return;
@@ -209,8 +218,9 @@ void FrameProcessor::receiveFrame(OnFrameArriveParameter *para) {
         oldView = samplerImageZeroView;
     }
     doDiffer(newView, oldView);
-    sender->waitRequireSlot([this](DXGIMapping &available) -> DXGIMapping & {
+    sender->waitRequireSlot([this, &merged](DXGIMapping &available) -> DXGIMapping & {
         available.copy(renderTargetTexture);
+        available.dataRect = merged;
         return available;
     });
 }

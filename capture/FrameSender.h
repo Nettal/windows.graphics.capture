@@ -12,16 +12,12 @@
 #include "D3D11Context.h"
 #include "shared/network.h"
 #include "AbstractCapture.h"
+#include "shared/shared.h"
 
 using moodycamel::BlockingConcurrentQueue;
 
 class FrameSender {
     using SlotSupplier = std::function<DXGIMapping &(DXGIMapping &available)>;
-
-    struct CompressedFrame {
-        uint32_t w;
-        uint32_t h;
-    };
 
     template<typename T>
     struct BufferHolder {
@@ -46,7 +42,7 @@ class FrameSender {
         }
     };
 
-    using FrameBuffer = BufferHolder<CompressedFrame>;
+    using FrameBuffer = BufferHolder<IMAGE_TYPE>;
     BlockingConcurrentQueue<DXGIMapping> compressFinished{};
     BlockingConcurrentQueue<DXGIMapping> compressWaiting{};
     BlockingConcurrentQueue<FrameBuffer> sendFinished{};
