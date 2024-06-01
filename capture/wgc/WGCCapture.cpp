@@ -15,8 +15,10 @@ void WGCCapture::start() {
                                       auto this_ = reinterpret_cast<WGCCapture *>(para->userPtr);
                                       ret->running = this_->running;
                                       this_->frameSize = para->frameSize;
+                                      RECT dirty = {0, 0, para->frameSize.width, para->frameSize.height};
                                       OnFrameArriveParameter parameter{para->d3d11Texture2D, para->systemRelativeTime,
-                                                                       para->frameSize};
+                                                                       para->frameSize.width, para->frameSize.height,
+                                                                       &dirty, 1};
                                       this_->frameProcessor->receiveFrame(&parameter);
                                   }, this);
 }
@@ -26,7 +28,7 @@ void WGCCapture::stop() {
 }
 
 SIZE2D WGCCapture::currentFrameSize() {
-    return frameSize;
+    return {frameSize.width, frameSize.height};
 }
 
 WGCCapture::WGCCapture(const std::shared_ptr<D3D11Context> &ctx, std::shared_ptr<AbstractFrameProcessor> frameProcessor,

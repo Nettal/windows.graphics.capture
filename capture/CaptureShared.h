@@ -4,11 +4,9 @@
 
 #ifndef WGC_CAPTURESHARED_H
 #define WGC_CAPTURESHARED_H
-#ifdef __cplusplus
-extern "C" {
-#endif
+
 #include <d3d11.h>
-#include <stdint.h>
+#include <vector>
 
 typedef struct SIZE2D {
     int32_t width;
@@ -19,8 +17,7 @@ typedef struct OnFrameArriveParameter {
     ID3D11Texture2D *d3d11Texture2D;
     uint64_t systemRelativeTime;
     SIZE2D frameSize;
+    RECT *dirties;
+    uint32_t dirtiesNum;
 } OnFrameArriveParameter;
-#ifdef __cplusplus
-};
-#endif
 #endif //WGC_CAPTURESHARED_H

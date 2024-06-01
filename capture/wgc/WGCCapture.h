@@ -10,10 +10,11 @@
 #include "capture/AbstractCapture.h"
 #include "capture/D3D11Context.h"
 #include "capture/AbstractFrameProcessor.h"
+#include "windows_graphics_capture.h"
 
 class WGCCapture : public AbstractCapture {
     void *wgc_c_internal{};
-    SIZE2D frameSize{};
+    WGCSIZE2D frameSize{};
     bool running{};
     std::shared_ptr<AbstractFrameProcessor> frameProcessor;
 public:

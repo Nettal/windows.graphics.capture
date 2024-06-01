@@ -76,7 +76,7 @@ struct WGC_SurfaceTranslate {
     GUID GUID_ID3D11Texture2D;
     int running;
     ID3D11Device *d3d11Device;
-    SIZE2D framePoolSize;
+    WGCSIZE2D framePoolSize;
     CIDirect3DDevice *ciDirect3DDevice;
     int numberOfBuffers;
     WgcOnFrameArrive frameArrive;
@@ -181,7 +181,7 @@ void wgc_do_capture_on_this_thread(void *field, WgcOnFrameArrive frameArrive, vo
 }
 
 void *
-wgc_initial_everything(HMONITOR monitorToCapture, SIZE2D *frameSize, ID3D11Device *d3d11Device, int bufferNum) {
+wgc_initial_everything(HMONITOR monitorToCapture, WGCSIZE2D *frameSize, ID3D11Device *d3d11Device, int bufferNum) {
     WGC_INTERNAL_FILED *wif = calloc(sizeof(struct WGC_INTERNAL_FILED), 1);
     wif->d3d11Device = d3d11Device;
     CoInitialize(0);

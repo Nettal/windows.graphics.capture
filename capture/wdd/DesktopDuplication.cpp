@@ -23,6 +23,8 @@ void DesktopDuplication::stop() {
 void DesktopDuplication::start() {
     running = true;
     bool first = true;
+    std::vector<RECT> dirties{64};
+    uint32_t usedNum = 0;
     while (running) {
         DXGI_OUTDUPL_FRAME_INFO frameInfo{};
         IDXGIResource *dxgiRes{};
@@ -38,15 +40,29 @@ void DesktopDuplication::start() {
             frameProcessor->preCapture(this);
             first = false;
         }
-        if (frameInfo.AccumulatedFrames) {
-
+        uint32_t freeByteSize = (dirties.size() - usedNum) * sizeof(RECT);
+        hr = outputDuplication->GetFrameDirtyRects(freeByteSize,
+                                                   &dirties[usedNum], &freeByteSize);
+        if (hr == DXGI_ERROR_MORE_DATA) {
+            dirties.resize(usedNum + freeByteSize / sizeof(RECT));
+            hr = outputDuplication->GetFrameDirtyRects(freeByteSize,
+                                                       &dirties[usedNum], &freeByteSize);
+            CHECK_RESULT(hr);
+            assert(dirties.size() * sizeof(RECT) == (usedNum * sizeof(RECT) + freeByteSize));
         }
-        OnFrameArriveParameter parameter{frame,
-                                         (uint64_t) std::chrono::duration_cast<std::chrono::microseconds>(
-                                                 std::chrono::system_clock::now().time_since_epoch()).count() * 10,
-                                         {static_cast<int32_t>(texDesc.Width),
-                                          static_cast<int32_t>(texDesc.Height)}};
-        frameProcessor->receiveFrame(&parameter);
+        usedNum += freeByteSize / sizeof(RECT);
+        CHECK_RESULT(hr);
+        if (frameInfo.AccumulatedFrames <= 1) {
+            OnFrameArriveParameter parameter{frame,
+                                             (uint64_t) std::chrono::duration_cast<std::chrono::microseconds>(
+                                                     std::chrono::system_clock::now().time_since_epoch()).count() * 10,
+                                             {static_cast<int32_t>(texDesc.Width),
+                                              static_cast<int32_t>(texDesc.Height)}, dirties.data(),
+                                             usedNum};
+            frameProcessor->receiveFrame(&parameter);
+            dirties.clear();
+            usedNum = 0;
+        }
         frame->Release();
         dxgiRes->Release();
         hr = outputDuplication->ReleaseFrame();
