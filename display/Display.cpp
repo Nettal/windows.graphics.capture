@@ -310,12 +310,19 @@ void Display::run(int _width, int _height, int _texW, int _texH) {
 
     int indices[] = {0, 1, 2, 0, 1, 3};
     // pos uv
+#if !TEXTURE_DIRECT_RENDERING
     float verts[] = {-1, -1, 0, 1,
                      1, 1, 1, 0,
                      1, -1, 1, 1,
                      -1, 1, 0, 0
     };
-
+#else
+    float verts[] = {-1, -1, 0, 0,
+                     1, 1, 1, 1,
+                     1, -1, 1, 0,
+                     -1, 1, 0, 1
+    };
+#endif
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
