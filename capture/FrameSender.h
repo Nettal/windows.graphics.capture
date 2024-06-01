@@ -5,6 +5,7 @@
 #ifndef WGC_FRAMESENDER_H
 #define WGC_FRAMESENDER_H
 
+#include <lz4.h>
 #include "./concurrent/blockingconcurrentqueue.h"
 #include "capture/wgc/windows_graphics_capture.h"
 #include "functional"
@@ -22,6 +23,7 @@ class FrameSender {
     template<typename T>
     struct BufferHolder {
         void *buffer{};
+        void *userPtr{};
         int64_t byteSize{};
         int64_t usedSize{};
         T extra;
@@ -43,6 +45,7 @@ class FrameSender {
     };
 
     using FrameBuffer = BufferHolder<IMAGE_TYPE>;
+    using CompressOp = std::function<void(DXGIMapping &mapping, FrameBuffer &frameBuffer)>;
     BlockingConcurrentQueue<DXGIMapping> compressFinished{};
     BlockingConcurrentQueue<DXGIMapping> compressWaiting{};
     BlockingConcurrentQueue<FrameBuffer> sendFinished{};
@@ -55,6 +58,7 @@ class FrameSender {
     int64_t socket{};
     std::shared_ptr<D3D11Context> ctx{};
     int numBuffer{};
+    CompressOp compress{};
 
     void sendOp();
 
@@ -68,11 +72,14 @@ public:
 
     void endCapture(AbstractCapture *capture);
 
-    explicit FrameSender(std::shared_ptr<D3D11Context> ctx, int64_t socket, int numBuffer = 2);
+    explicit FrameSender(std::shared_ptr<D3D11Context> ctx, CompressOp compress, int64_t socket, int numBuffer = 2);
 
     explicit FrameSender() = default;
 
     void checkQueueSize();
+
+    static const CompressOp lz4Compress;
+    static const CompressOp jpegTurboCompress;
 };
 
 #endif //WGC_FRAMESENDER_H

@@ -7,6 +7,7 @@
 #include "FrameSender.h"
 #include "lz4.h"
 #include "shared/shared.h"
+#include <turbojpeg.h>
 
 void FrameSender::waitRequireSlot(const FrameSender::SlotSupplier &supplier) {
     DXGIMapping available{};
@@ -33,18 +34,7 @@ void FrameSender::compressOp() {
     sendFinished.wait_dequeue(bufferHolder);
     if (enableDebugCheck)
         fprintf(stderr, "compressOp, rect{%d,%d}", mapping.frameDesc.Width, mapping.frameDesc.Height);
-    auto bufferSize = mapping.frameDesc.Height * mapping.mappedRect.Pitch;
-    if (bufferSize > bufferHolder.byteSize) {
-        bufferHolder.reSize(bufferSize);
-    }
-    auto destSize = LZ4_compress_default((char *) mapping.mappedRect.pBits, (char *) bufferHolder.buffer, bufferSize,
-                                         bufferSize);
-    assert(destSize != 0);
-    bufferHolder.extra = {static_cast<uint32_t>(mapping.dataRect.left),
-                          static_cast<uint32_t>(mapping.dataRect.top),
-                          static_cast<uint32_t>(mapping.dataRect.right),
-                          static_cast<uint32_t>(mapping.dataRect.bottom), destSize};
-    bufferHolder.usedSize = destSize;
+    compress(mapping, bufferHolder);
     sendWaiting.enqueue(bufferHolder);
     compressFinished.enqueue(mapping);
     checkQueueSize();
@@ -62,8 +52,8 @@ void FrameSender::sendOp() {
     checkQueueSize();
 }
 
-FrameSender::FrameSender(std::shared_ptr<D3D11Context> ctx, int64_t socket, int numBuffer)
-        : ctx(std::move(ctx)), socket(socket), numBuffer(numBuffer),
+FrameSender::FrameSender(std::shared_ptr<D3D11Context> ctx, CompressOp compress, int64_t socket, int numBuffer)
+        : ctx(std::move(ctx)), socket(socket), numBuffer(numBuffer), compress(std::move(compress)),
           compressWaiting{static_cast<size_t>(numBuffer)},
           compressFinished{static_cast<size_t>(numBuffer)},
           sendWaiting(static_cast<size_t>(numBuffer)),
@@ -91,3 +81,45 @@ void FrameSender::preCapture(AbstractCapture *capture) {
 void FrameSender::endCapture(AbstractCapture *capture) {
     running = 0;
 }
+
+const FrameSender::CompressOp FrameSender::lz4Compress = [](DXGIMapping &mapping,
+                                                            FrameSender::FrameBuffer &frameBuffer) {
+    auto bufferSize = mapping.frameDesc.Height * mapping.mappedRect.Pitch;
+    if (frameBuffer.userPtr == nullptr) {
+        frameBuffer.userPtr = new std::vector<char>(bufferSize);
+    }
+    if (bufferSize > frameBuffer.byteSize) {
+        frameBuffer.reSize(bufferSize);
+        reinterpret_cast<std::vector<char> *>(frameBuffer.userPtr)->resize(bufferSize);
+    }
+    frameBuffer.extra = {static_cast<uint32_t>(mapping.dataRect.left),
+                         static_cast<uint32_t>(mapping.dataRect.top),
+                         static_cast<uint32_t>(mapping.dataRect.right - mapping.dataRect.left),
+                         static_cast<uint32_t>(mapping.dataRect.bottom - mapping.dataRect.top), 0};
+    if (frameBuffer.extra.h != mapping.frameDesc.Height
+        || frameBuffer.extra.w != mapping.frameDesc.Width) { // ranged, do mem copy
+        auto dest = *reinterpret_cast<std::vector<char> *>(frameBuffer.userPtr);
+        for (int i = 0; i < frameBuffer.extra.h; ++i) {
+            auto destPtr = &dest[i * frameBuffer.extra.w * 4]; // 4 channel
+            auto srcPtr = ((char *) mapping.mappedRect.pBits)
+                          + mapping.dataRect.left * 4 // current line start
+                          + mapping.mappedRect.Pitch * i * 4; // pre full lines
+            memcpy(destPtr, srcPtr, frameBuffer.extra.w * 4);
+        }
+        frameBuffer.extra.size = LZ4_compress_default((char *) dest.data(),
+                                                      (char *) frameBuffer.buffer,
+                                                      bufferSize,
+                                                      bufferSize);
+    } else {
+        frameBuffer.extra.size = LZ4_compress_default((char *) mapping.mappedRect.pBits,
+                                                      (char *) frameBuffer.buffer,
+                                                      bufferSize,
+                                                      bufferSize);
+    }
+    assert(frameBuffer.extra.size != 0);
+    frameBuffer.usedSize = frameBuffer.extra.size;
+};
+
+const FrameSender::CompressOp FrameSender::jpegTurboCompress = [](DXGIMapping &mapping, FrameBuffer &frameBuffer) {
+
+};
