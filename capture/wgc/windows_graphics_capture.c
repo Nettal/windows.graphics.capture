@@ -126,13 +126,12 @@ void wgc_onFrameArrive(struct ImplComCallback *This,
     //fprintf(stderr, "surface{%d,%d}\n", surfaceDescription.Width, surfaceDescription.Height);
     //fprintf(stderr, "frame{%d,%d}\n", frameSize.Width, frameSize.Height);
 
-    OnFrameArriveParameter parameter = {texture2D,
-                                        surfaceTranslate->d3d11Device,
+    WGCOnFrameArriveParameter parameter = {texture2D,
                                         systemRelativeTime.Duration,
                                         frameSize.Width,
                                         frameSize.Height,
                                         surfaceTranslate->userPtr};
-    OnFrameArriveRet arriveRet = {surfaceTranslate->running};
+    WGCOnFrameArriveRet arriveRet = {surfaceTranslate->running};
     assert(surfaceTranslate->frameArrive);
     surfaceTranslate->frameArrive(&parameter, &arriveRet);
     // outer end

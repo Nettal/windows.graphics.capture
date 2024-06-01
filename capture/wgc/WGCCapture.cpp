@@ -11,11 +11,13 @@ void WGCCapture::start() {
     frameProcessor->preCapture(this);
     running = true;
     wgc_do_capture_on_this_thread(wgc_c_internal,
-                                  [](OnFrameArriveParameter *para, OnFrameArriveRet *ret) {
+                                  [](WGCOnFrameArriveParameter *para, WGCOnFrameArriveRet *ret) {
                                       auto this_ = reinterpret_cast<WGCCapture *>(para->userPtr);
                                       ret->running = this_->running;
                                       this_->frameSize = para->frameSize;
-                                      this_->frameProcessor->receiveFrame(para);
+                                      OnFrameArriveParameter parameter{para->d3d11Texture2D, para->systemRelativeTime,
+                                                                       para->frameSize};
+                                      this_->frameProcessor->receiveFrame(&parameter);
                                   }, this);
 }
 
@@ -27,7 +29,7 @@ SIZE2D WGCCapture::currentFrameSize() {
     return frameSize;
 }
 
-WGCCapture::WGCCapture(const std::shared_ptr<D3D11Context>& ctx, std::shared_ptr<AbstractFrameProcessor> frameProcessor,
+WGCCapture::WGCCapture(const std::shared_ptr<D3D11Context> &ctx, std::shared_ptr<AbstractFrameProcessor> frameProcessor,
                        HMONITOR monitorToCapture, int bufferNum) : frameProcessor(std::move(frameProcessor)) {
     wgc_c_internal = wgc_initial_everything(monitorToCapture, &frameSize, ctx->d3d11Device, bufferNum);
 }

@@ -42,8 +42,9 @@ static const auto hlsl_shader =
         "}";
 #define CHECK_RESULT(x) do{if(FAILED(x)) {fprintf(stderr,"error at %s:%d\n",__FILE__, __LINE__);}} while(0)
 
-FrameProcessor::FrameProcessor(const std::shared_ptr<D3D11Context> &d3dContext, std::shared_ptr<FrameSender> sender) :
-        d3dContext(d3dContext), sender(std::move(sender)) {
+FrameProcessor::FrameProcessor(const std::shared_ptr<D3D11Context> &d3dContext, std::shared_ptr<FrameSender> sender,
+                               bool differ) :
+        d3dContext(d3dContext), sender(std::move(sender)), differ(differ) {
     vertexShaderBlob = compileShader(hlsl_shader, "vs_main", "vs_5_0");
     fragmentShaderBlob = compileShader(hlsl_shader, "ps_main", "ps_5_0");
     D3D11_BUFFER_DESC vertexInputDescriptor;
@@ -174,6 +175,13 @@ void FrameProcessor::receiveFrame(OnFrameArriveParameter *para) {
         mw_info("fps:%f", frameCount / ((para->systemRelativeTime - frameTime) / 10'000'000.0));
         frameCount = 0;
         frameTime = para->systemRelativeTime;
+    }
+    if (!differ) {
+        sender->waitRequireSlot([&para](DXGIMapping &available) -> DXGIMapping & {
+            available.copy(para->d3d11Texture2D);
+            return available;
+        });
+        return;
     }
     D3D11_TEXTURE2D_DESC wgcTexDesc{};
     para->d3d11Texture2D->GetDesc(&wgcTexDesc);

@@ -30,6 +30,8 @@ add_executable(wgc
         capture/CaptureShared.h
         shared/network.cpp
         capture/AbstractFrameProcessor.h
+        capture/wdd/DesktopDuplication.cpp
+        capture/wdd/DesktopDuplication.h
 )
 
 add_executable(display

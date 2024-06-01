@@ -54,6 +54,7 @@ class FrameProcessor : public AbstractFrameProcessor {
     int preTextureIndex{}; // a is 0, b is 1
     int refreshSignal{};
     std::shared_ptr<FrameSender> sender{};
+    bool differ{};
 
     void doDiffer(ID3D11ShaderResourceView *newView, ID3D11ShaderResourceView *oldView);
 
@@ -64,7 +65,8 @@ class FrameProcessor : public AbstractFrameProcessor {
     void createTextures(SIZE2D newSize, enum DXGI_FORMAT format);
 
 public:
-    explicit FrameProcessor(const std::shared_ptr<D3D11Context> &d3dContext, std::shared_ptr<FrameSender> sender);
+    explicit FrameProcessor(const std::shared_ptr<D3D11Context> &d3dContext, std::shared_ptr<FrameSender> sender,
+                            bool differ);
 
     void refresh();
 
