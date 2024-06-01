@@ -99,11 +99,11 @@ const FrameSender::CompressOp FrameSender::lz4Compress = [](DXGIMapping &mapping
     if (frameBuffer.extra.h != mapping.frameDesc.Height
         || frameBuffer.extra.w != mapping.frameDesc.Width) { // ranged, do mem copy
         auto dest = *reinterpret_cast<std::vector<char> *>(frameBuffer.userPtr);
-        for (int i = 0; i < frameBuffer.extra.h; ++i) {
+        for (int i = frameBuffer.extra.y; i < frameBuffer.extra.h + frameBuffer.extra.y; ++i) {
             auto destPtr = &dest[i * frameBuffer.extra.w * 4]; // 4 channel
             auto srcPtr = ((char *) mapping.mappedRect.pBits)
                           + mapping.dataRect.left * 4 // current line start
-                          + mapping.mappedRect.Pitch * i * 4; // pre full lines
+                          + mapping.mappedRect.Pitch * i; // pre full lines
             memcpy(destPtr, srcPtr, frameBuffer.extra.w * 4);
         }
         frameBuffer.extra.size = LZ4_compress_default((char *) dest.data(),
