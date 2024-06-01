@@ -48,6 +48,6 @@ add_executable(display
         shared/stb_image_write.c
 )
 
-target_link_libraries(display glfw3 ws2_32 lz4)
+target_link_libraries(display glfw3 ws2_32 lz4 turbojpeg)
 
-target_link_libraries(wgc D3D11 d3dcompiler lz4 ws2_32)
+target_link_libraries(wgc D3D11 d3dcompiler lz4 ws2_32 turbojpeg)

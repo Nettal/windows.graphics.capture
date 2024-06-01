@@ -122,5 +122,29 @@ const FrameSender::CompressOp FrameSender::lz4Compress = [](DXGIMapping &mapping
 };
 
 const FrameSender::CompressOp FrameSender::jpegTurboCompress = [](DXGIMapping &mapping, FrameBuffer &frameBuffer) {
-
+    auto bufferSize = tjBufSize(mapping.frameDesc.Width, mapping.frameDesc.Height, TJPF_BGRA);
+    if (frameBuffer.userPtr == nullptr) {
+        frameBuffer.userPtr = tjInitCompress();
+    }
+    if (bufferSize > frameBuffer.byteSize) {
+        frameBuffer.reSize(bufferSize);
+    }
+    frameBuffer.extra = {static_cast<uint32_t>(mapping.dataRect.left),
+                         static_cast<uint32_t>(mapping.dataRect.top),
+                         static_cast<uint32_t>(mapping.dataRect.right - mapping.dataRect.left),
+                         static_cast<uint32_t>(mapping.dataRect.bottom - mapping.dataRect.top), 0};
+    auto src = (uint8_t *) mapping.mappedRect.pBits
+               + frameBuffer.extra.x * 4 // current line start
+               + frameBuffer.extra.y * mapping.mappedRect.Pitch; // pre full lines
+    auto result = tjCompress2(frameBuffer.userPtr,
+                              src,
+                              frameBuffer.extra.w,
+                              mapping.mappedRect.Pitch, // pitch
+                              (int) frameBuffer.extra.h, TJPF_BGRA,
+                              (uint8_t **) (&frameBuffer.buffer),
+                              (unsigned long *) (&frameBuffer.extra.size), TJSAMP_444, 90,
+                              TJFLAG_NOREALLOC | TJFLAG_FASTDCT);
+    assert(result == 0);
+    assert(frameBuffer.extra.size != 0);
+    frameBuffer.usedSize = frameBuffer.extra.size;
 };
