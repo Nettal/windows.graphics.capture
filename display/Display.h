@@ -16,6 +16,8 @@ typedef struct {
     float *verts;
 } MeshData;
 
+#define TEXTURE_DIRECT_RENDERING true
+
 #define ENABLE_PBO false
 
 class Display {
@@ -30,7 +32,9 @@ class Display {
 #if ENABLE_PBO
     GLuint pbo;
 #endif
+#if !TEXTURE_DIRECT_RENDERING
     RenderTarget *renderTarget;
+#endif
     std::function<void(Display *)> pixelPtrAvailable = [](Display *) {};
 public:
     void setSize(int _width, int _height);
@@ -47,6 +51,8 @@ public:
 #else
 
     void uploadTex(void *pixel);
+
+    void uploadTex(int x, int y, int w, int h, void *pixel);
 
 #endif
 

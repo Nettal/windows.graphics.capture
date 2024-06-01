@@ -96,7 +96,11 @@ void mw_read_all(int64_t handle, void *basePtr_, int64_t len) {
         basePtr += result;
         baseSize -= result;
         if (result == -1) {
+#ifndef __linux__
             int err = WSAGetLastError();
+#else
+            int err = -1;
+#endif
             mw_fatal("Error while receiving , received %lld expect %zu error %d", sum, len, err);
         }
         if (sum == len)
@@ -109,7 +113,7 @@ bool mw_send(int64_t handle, const void *basePtr, int64_t len) {
     assert(len != 0);
     int64_t result;
 #ifdef __linux
-    result = ::send((int)handle, basePtr, len, 0);
+    result = ::send((int) handle, basePtr, len, 0);
 #elif defined(WIN32)
     result = ::send(handle, (const char *) basePtr, (int) len, 0);
 #else

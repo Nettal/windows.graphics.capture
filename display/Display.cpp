@@ -342,9 +342,9 @@ void Display::run(int _width, int _height, int _texW, int _texH) {
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 #endif
     pixelPtrAvailable(this);
-
+#if !TEXTURE_DIRECT_RENDERING
     renderTarget = new RenderTarget(texW, texH);
-
+#endif
     GLint diffSrcLocation = glGetUniformLocation(diffShader.ID, "src");
     GLint diffBack0Location = glGetUniformLocation(diffShader.ID, "back0");
     GLint diffBack1Location = glGetUniformLocation(diffShader.ID, "back1");
@@ -356,6 +356,7 @@ void Display::run(int _width, int _height, int _texW, int _texH) {
 
     bool destIsZero = true;
     while (!glfwWindowShouldClose(window)) {
+#if !TEXTURE_DIRECT_RENDERING
         renderTarget->bind();
         {
             diffShader.use();
@@ -382,11 +383,13 @@ void Display::run(int _width, int _height, int _texW, int _texH) {
             mesh.draw();
         }
         renderTarget->restore();
+#endif
         {
             displayShader.use();
 //            glClearColor(0.f, 0.f, 1.f, 1.0f);
 //            glClear(GL_COLOR_BUFFER_BIT);
             glViewport(0, 0, width, height);
+#if !TEXTURE_DIRECT_RENDERING
 
             int src0 = (int) renderTarget->getTextureId(0);
             glUniform1i(dispSrc0Location, src0);
@@ -399,7 +402,12 @@ void Display::run(int _width, int _height, int _texW, int _texH) {
             glBindTexture(GL_TEXTURE_2D, src1);
 
             glUniform1i(dispSrcIndexLocation, destIsZero ? 0 : 1);
-
+#else
+            glUniform1i(dispSrc1Location, 0);
+            glUniform1i(dispSrc0Location, 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, tex);
+#endif
             mesh.draw();
         }
 
@@ -408,8 +416,10 @@ void Display::run(int _width, int _height, int _texW, int _texH) {
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+#if !TEXTURE_DIRECT_RENDERING
     renderTarget->close();
     delete renderTarget;
+#endif
 }
 
 void Display::terminate() {
@@ -449,6 +459,17 @@ void Display::uploadTex(void *pixel) {
         glBindTexture(GL_TEXTURE_2D, tex);
     }
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texW, texH, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixel);
+    glFinish();
+}
+
+void Display::uploadTex(int x, int y, int w, int h, void *pixel) {
+    if (!madeContext) {
+        glfwMakeContextCurrent(sharedThread);
+        glDebugMessageCallback(reinterpret_cast<GLDEBUGPROC>(debugOutput), nullptr);
+        madeContext = true;
+        glBindTexture(GL_TEXTURE_2D, tex);
+    }
+    glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, GL_BGRA, GL_UNSIGNED_BYTE, pixel);
     glFinish();
 }
 
@@ -508,11 +529,11 @@ int main() {
     mw_read_all(sock, (char *) (&type), sizeof(IMAGE_TYPE));
     texW = type.w;
     texH = type.h;
-    display.setPixelPtrAvailable([sock, type](Display *dpy) {
-        std::thread([dpy, sock, type] {
+    display.setPixelPtrAvailable([sock, type, texH, texW](Display *dpy) {
+        std::thread([dpy, sock, type, texH, texW] {
             bool first = true;
-            void *tmp = calloc(sizeof(uint32_t), type.w * type.h);
-            void *tex = calloc(sizeof(uint32_t), type.w * type.h);
+            void *tmp = calloc(sizeof(uint32_t), texW * texH);
+            void *tex = calloc(sizeof(uint32_t), texW * texH);
 #if ENABLE_DEBUG
             uint32_t *pixel = (uint32_t *) calloc(sizeof(uint32_t), type.w * type.h);
             int oCount = 0;
@@ -527,7 +548,7 @@ int main() {
                     mw_read_all(sock, (char *) (tmp), type.size);
                 }
                 int r = LZ4_decompress_safe((const char *) tmp, (char *) (tex), type.size,
-                                            type.w * type.h * sizeof(uint32_t));
+                                            texW * texH * sizeof(uint32_t));
                 if (r < 0) {
                     assert(0);
                 }
@@ -554,7 +575,12 @@ int main() {
                 }
 #endif
 
+#if !TEXTURE_DIRECT_RENDERING
                 dpy->uploadTex(tex);
+#else
+                dpy->uploadTex(type.x, type.y, type.w, type.h, tex);
+                fprintf(stderr, "%d %d %d %d\n", type.x, type.y, type.w, type.h);
+#endif
                 frameCount++;
                 std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
                 auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
