@@ -525,6 +525,11 @@ static float frameCount = 0;
 #include "../shared/stb_image_write.h"
 
 #endif
+#if USE_JPEG_TURBO
+
+#include <turbojpeg.h>
+
+#endif
 
 int main() {
     Display display{};
@@ -546,19 +551,35 @@ int main() {
             int oCount = 0;
 #endif
 
+#if USE_JPEG_TURBO
+            tjhandle tj;
+#endif
+
             while (true) {
                 if (first) {
+#if USE_JPEG_TURBO
+                    tj = tjInitDecompress();
+#endif
                     mw_read_all(sock, (char *) (tmp), type.size);
                     first = false;
                 } else {
                     mw_read_all(sock, (char *) (&type), sizeof(IMAGE_TYPE));
                     mw_read_all(sock, (char *) (tmp), type.size);
                 }
+#if !USE_JPEG_TURBO
                 int r = LZ4_decompress_safe((const char *) tmp, (char *) (tex), type.size,
                                             texW * texH * sizeof(uint32_t));
                 if (r < 0) {
                     assert(0);
                 }
+#else
+                int result = tjDecompress2(tj, (const uint8_t *) (tmp), type.size,
+                                           (uint8_t *) (tex), 0, 0, 0,
+                                           TJPF_BGRA, 0);
+                if (result != 0) {
+                    assert(0);
+                }
+#endif
 
 #if ENABLE_DEBUG
                 auto count = type.w * type.h;

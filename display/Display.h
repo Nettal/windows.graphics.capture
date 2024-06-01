@@ -20,6 +20,8 @@ typedef struct {
 
 #define ENABLE_PBO false
 
+#define USE_JPEG_TURBO true
+
 class Display {
     GLFWwindow *window;
     GLFWwindow *sharedThread;
