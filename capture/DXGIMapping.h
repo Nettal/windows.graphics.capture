@@ -23,6 +23,7 @@ public:
     D3D11_TEXTURE2D_DESC frameDesc{};
     DXGI_MAPPED_RECT mappedRect{};
     RECT dataRect{};
+    void *userPtr{};
 
     explicit DXGIMapping(ID3D11Device *d3d11Device, SIZE2D currentTextureSize, ID3D11DeviceContext *deviceCtx);
 

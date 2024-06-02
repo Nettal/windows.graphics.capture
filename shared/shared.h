@@ -13,6 +13,11 @@ typedef struct {
     uint32_t w;
     uint32_t h;
     int64_t size;
+    uint64_t flags; // have next when not zero
 } IMAGE_TYPE;
 
+typedef struct {
+    int64_t size;
+    uint64_t flags; // have next when not zero
+} IMAGE_TYPE_NEXT;
 #endif //CAPTURE_SHARED_H

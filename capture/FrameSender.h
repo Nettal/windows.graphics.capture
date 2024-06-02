@@ -19,6 +19,8 @@ using moodycamel::BlockingConcurrentQueue;
 
 class FrameSender {
     using SlotSupplier = std::function<DXGIMapping &(DXGIMapping &available)>;
+    template<typename T>
+    using SendOp = std::function<void(T &buffer, int64_t socket)>;
 
     template<typename T>
     struct BufferHolder {
@@ -27,6 +29,7 @@ class FrameSender {
         int64_t byteSize{};
         int64_t usedSize{};
         T extra;
+        SendOp<BufferHolder<T>> send{};
 
         explicit BufferHolder() = default;
 
@@ -80,6 +83,7 @@ public:
 
     static const CompressOp lz4Compress;
     static const CompressOp jpegTurboCompress;
+    static const CompressOp noOp; // test only
 };
 
 #endif //WGC_FRAMESENDER_H
