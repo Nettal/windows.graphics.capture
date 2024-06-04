@@ -531,6 +531,23 @@ static float frameCount = 0;
 
 #endif
 
+void continue_read(int64_t sock, uint8_t *tex, void *tmp, size_t bufSize) {
+    IMAGE_TYPE_NEXT next;
+    int r = 0;
+    while (true) {
+        tex += r;
+        mw_read_all(sock, (char *) (&next), sizeof(IMAGE_TYPE_NEXT));
+        if (next.flags == 0)
+            break;
+        mw_read_all(sock, (char *) (tmp), next.size);
+        r = LZ4_decompress_safe((const char *) tmp, (char *) (tex), next.size,
+                                bufSize);
+        if (r < 0) {
+            assert(0);
+        }
+    }
+}
+
 int main() {
     Display display{};
     int texW = 1024;
@@ -572,6 +589,11 @@ int main() {
                 if (r < 0) {
                     assert(0);
                 }
+                if (type.flags != 0) {
+                    auto *t = (uint8_t *) tex;
+                    t += r;
+                    continue_read(sock, t, tmp, texW * texH * sizeof(uint32_t));
+                }
 #else
                 int result = tjDecompress2(tj, (const uint8_t *) (tmp), type.size,
                                            (uint8_t *) (tex), 0, 0, 0,
@@ -607,7 +629,7 @@ int main() {
                 dpy->uploadTex(tex);
 #else
                 dpy->uploadTex(type.x, type.y, type.w, type.h, tex);
-                fprintf(stderr, "%d %d %d %d\n", type.x, type.y, type.w, type.h);
+//                fprintf(stderr, "%d %d %d %d\n", type.x, type.y, type.w, type.h);
 #endif
                 frameCount++;
                 std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
