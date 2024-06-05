@@ -187,6 +187,10 @@ const FrameSender::CompressOp FrameSender::jpegTurboCompress = [](DXGIMapping &m
     if (bufferSize > frameBuffer.byteSize) {
         frameBuffer.reSize(bufferSize);
     }
+    frameBuffer.send = [](FrameBuffer &bufferHolder, int64_t socket_) {
+        mw_send(socket_, &bufferHolder.extra, sizeof(IMAGE_TYPE));
+        mw_send(socket_, bufferHolder.buffer, bufferHolder.usedSize);
+    };
     frameBuffer.extra = {static_cast<uint32_t>(mapping.dataRect.left),
                          static_cast<uint32_t>(mapping.dataRect.top),
                          static_cast<uint32_t>(mapping.dataRect.right - mapping.dataRect.left),
@@ -209,8 +213,7 @@ const FrameSender::CompressOp FrameSender::jpegTurboCompress = [](DXGIMapping &m
 
 const FrameSender::CompressOp FrameSender::noOp = [](DXGIMapping &mapping, FrameBuffer &frameBuffer) {
     mw_error("w:%d,h%d", mapping.frameDesc.Width, mapping.frameDesc.Height);
-    frameBuffer.reSize(64);
-    frameBuffer.extra.size = 64;
-    assert(frameBuffer.extra.size != 0);
-    frameBuffer.usedSize = frameBuffer.extra.size;
+    frameBuffer.send = [](FrameBuffer &bufferHolder, int64_t socket_) {
+
+    };
 };
