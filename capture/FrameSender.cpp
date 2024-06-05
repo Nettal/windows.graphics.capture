@@ -122,33 +122,36 @@ const FrameSender::CompressOp FrameSender::lz4Compress = [](DXGIMapping &mapping
     if (THREADING) {
         using BS::thread_pool;
         thread_pool threadPool{};
-        auto lineCount = mapping.frameDesc.Height / threadPool.get_thread_count();
-        auto firstLineCount = mapping.frameDesc.Height % threadPool.get_thread_count() + lineCount;
+        auto threadCount = threadPool.get_thread_count() / 3 + 1;
+        auto lineCount = mapping.frameDesc.Height / threadCount;
+        auto firstLineCount = mapping.frameDesc.Height % threadCount + lineCount;
         threadPool.detach_task([&frameBuffer, &mapping, bufferSize, firstLineCount]() {
-            frameBuffer.extra.size = LZ4_compress_default((char *) mapping.mappedRect.pBits,
-                                                          (char *) frameBuffer.buffer,
-                                                          mapping.mappedRect.Pitch * firstLineCount,
-                                                          bufferSize);
+            frameBuffer.usedSize = frameBuffer.extra.size = LZ4_compress_default(
+                    (char *) mapping.mappedRect.pBits,
+                    (char *) frameBuffer.buffer,
+                    mapping.mappedRect.Pitch * firstLineCount,
+                    bufferSize);
         });
         frameBuffer.extra.flags = firstLineCount != mapping.frameDesc.Height;
-        auto &currentBuffer = mapping.userPtr;
-        for (int i = 1; i < threadPool.get_thread_count(); ++i) {
-            if (currentBuffer == nullptr) {
-                currentBuffer = new BufferHolder<IMAGE_TYPE_NEXT>(bufferSize);
+        auto buffer = &frameBuffer.userPtr;
+        for (int i = 1; i < threadCount; ++i) {
+            if (*buffer == nullptr) {
+                *buffer = new BufferHolder<IMAGE_TYPE_NEXT>(bufferSize);
             }
-            auto buffer = reinterpret_cast<BufferHolder <IMAGE_TYPE_NEXT> *>(currentBuffer);
-            if (bufferSize > buffer->byteSize) {
-                buffer->reSize(bufferSize);
+            auto casted = static_cast<BufferHolder <IMAGE_TYPE_NEXT> *>(*buffer);
+            if (bufferSize > casted->byteSize) {
+                casted->reSize(bufferSize);
             }
-            buffer->extra.flags = (i != threadPool.get_thread_count() - 1);
-            threadPool.detach_task([buffer, &mapping, bufferSize, i, lineCount]() {
-                buffer->extra.size = buffer->usedSize = LZ4_compress_default(
+            casted->extra.flags = (i != threadCount - 1);
+            threadPool.detach_task([casted, &mapping, bufferSize, i, lineCount]() {
+                casted->extra.size = casted->usedSize = LZ4_compress_default(
                         (char *) mapping.mappedRect.pBits
                         + mapping.mappedRect.Pitch * i * lineCount,
-                        (char *) buffer->buffer,
+                        (char *) casted->buffer,
                         mapping.mappedRect.Pitch * lineCount,
                         bufferSize);
             });
+            buffer = &casted->userPtr;
         }
         threadPool.wait();
         frameBuffer.send = [](FrameBuffer &bufferHolder, int64_t socket_) {

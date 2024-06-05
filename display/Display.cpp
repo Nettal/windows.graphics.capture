@@ -537,14 +537,14 @@ void continue_read(int64_t sock, uint8_t *tex, void *tmp, size_t bufSize) {
     while (true) {
         tex += r;
         mw_read_all(sock, (char *) (&next), sizeof(IMAGE_TYPE_NEXT));
-        if (next.flags == 0)
-            break;
         mw_read_all(sock, (char *) (tmp), next.size);
         r = LZ4_decompress_safe((const char *) tmp, (char *) (tex), next.size,
                                 bufSize);
         if (r < 0) {
             assert(0);
         }
+        if (next.flags == 0)
+            break;
     }
 }
 
